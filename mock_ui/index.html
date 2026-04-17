@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DLLS Manager Mock UI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="panel library-panel">
+      <h1>Prototype Library</h1>
+      <p class="subtle">Interaktive Maske auf Basis der exportierten Planungsdaten.</p>
+      <div class="card capabilities-card">
+        <h2>System</h2>
+        <pre id="capabilities-summary"></pre>
+      </div>
+      <div id="library" class="library-list"></div>
+    </section>
+    <section class="panel detail-panel">
+      <div id="detail-empty" class="empty-state">Select a game to inspect policy and launch preview.</div>
+      <div id="detail" class="hidden">
+        <div class="toolbar">
+          <label class="form-field">
+            <span>Game</span>
+            <select id="game-select"></select>
+          </label>
+          <label class="form-field">
+            <span>Profile</span>
+            <select id="profile-select"></select>
+          </label>
+        </div>
+        <header class="detail-header">
+          <div>
+            <h2 id="game-name"></h2>
+            <p id="game-meta" class="subtle"></p>
+          </div>
+          <span id="status-badge" class="badge"></span>
+        </header>
+        <div class="grid">
+          <div class="card">
+            <h3>Game Summary</h3>
+            <pre id="game-summary"></pre>
+          </div>
+          <div class="card">
+            <h3>Base Profile</h3>
+            <pre id="profile-settings"></pre>
+          </div>
+          <div class="card">
+            <h3>Effective Profile</h3>
+            <pre id="effective-profile"></pre>
+          </div>
+          <div class="card">
+            <h3>Install Override</h3>
+            <pre id="override-config"></pre>
+          </div>
+          <div class="card">
+            <h3>Anti-Cheat</h3>
+            <pre id="anti-cheat"></pre>
+          </div>
+          <div class="card">
+            <h3>Requested Features</h3>
+            <pre id="features"></pre>
+          </div>
+          <div class="card">
+            <h3>Policy Reasons</h3>
+            <pre id="policy-reasons"></pre>
+          </div>
+          <div class="card">
+            <h3>Warnings</h3>
+            <pre id="warnings"></pre>
+          </div>
+          <div class="card">
+            <h3>Blocked Reasons</h3>
+            <pre id="blocked"></pre>
+          </div>
+          <div class="card">
+            <h3>Safe / Blocked Actions</h3>
+            <pre id="actions"></pre>
+          </div>
+          <div class="card">
+            <h3>CLI Commands</h3>
+            <pre id="cli-commands"></pre>
+          </div>
+          <div class="card">
+            <h3>Rollbacks</h3>
+            <pre id="rollbacks"></pre>
+          </div>
+        </div>
+        <div class="card preview-card">
+          <h3>Launch Preview</h3>
+          <pre id="preview"></pre>
+        </div>
+        <div class="card preview-card">
+          <h3>Mutation Plan</h3>
+          <pre id="mutation-plan"></pre>
+        </div>
+        <div class="card preview-card">
+          <h3>Policy Report</h3>
+          <pre id="policy-report"></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="mock-library.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

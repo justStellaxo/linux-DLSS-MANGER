@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dlls-manager"
+version = "0.2.0a1"
+description = "CLI-first Linux DLSS manager prototype for discovery, policy-aware launch planning, mutation, and rollback."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Stella" },
+]
+license = { text = "Proprietary" }
+keywords = ["dlss", "linux", "proton", "steam", "wine"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: Other/Proprietary License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+dlls-manager = "dlls_manager.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["dlls_manager*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+  "mock_ui/mock-library.js",
+  "mock_ui/mock-library.json",
+]

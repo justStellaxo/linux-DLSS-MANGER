@@ -1,0 +1,14 @@
+{
+  "enable_nvapi": true,
+  "enable_smooth_motion": true,
+  "use_gamemode": true,
+  "use_mangohud": true,
+  "dlss_mode": "force_version",
+  "dlss_version": "3.7.10",
+  "allow_unsupported_override": true,
+  "safety_mode": "unsafe",
+  "launch_args": "--prototype-experimental",
+  "custom_env": {
+    "DXVK_HUD": "full"
+  }
+}

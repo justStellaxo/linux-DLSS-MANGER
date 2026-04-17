@@ -1,0 +1,17 @@
+[
+  {
+    "id": "game_default",
+    "label": "Game Default",
+    "selectable": true
+  },
+  {
+    "id": "2.5.1",
+    "label": "DLSS 2.5.1",
+    "selectable": true
+  },
+  {
+    "id": "3.7.10",
+    "label": "DLSS 3.7.10",
+    "selectable": true
+  }
+]

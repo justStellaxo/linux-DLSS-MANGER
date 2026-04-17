@@ -1,0 +1,52 @@
+[
+  {
+    "id": "sample-dx11",
+    "name": "Sample DX11 Proton Game",
+    "launcher": "steam",
+    "app_id": "123456",
+    "runtime": "proton-dx11",
+    "anti_cheat": "none",
+    "anti_cheat_vendor": null,
+    "anti_cheat_policy": "verified_supported",
+    "supports_dlss_override": true,
+    "supports_dlss_version_selection": true,
+    "override_mode": "experimental",
+    "scan_path": "fixtures/game_dirs/no_anticheat_sample",
+    "notes": [
+      "Sample title with low-risk baseline policy for local testing."
+    ]
+  },
+  {
+    "id": "sample-dx12",
+    "name": "Sample DX12 Proton Game",
+    "launcher": "steam",
+    "app_id": "654321",
+    "runtime": "proton-dx12",
+    "anti_cheat": "high",
+    "anti_cheat_vendor": "EasyAntiCheat",
+    "anti_cheat_policy": "blocked",
+    "supports_dlss_override": false,
+    "supports_dlss_version_selection": false,
+    "override_mode": "blocked",
+    "scan_path": "fixtures/game_dirs/eac_sample",
+    "notes": [
+      "Sample title showing how conservative anti-cheat policy blocks experimental overrides."
+    ]
+  },
+  {
+    "id": "sample-vulkan",
+    "name": "Sample Vulkan Unknown Title",
+    "launcher": "manual",
+    "runtime": "native-vulkan",
+    "anti_cheat": "unknown",
+    "anti_cheat_vendor": null,
+    "anti_cheat_policy": "warn",
+    "supports_dlss_override": false,
+    "supports_dlss_version_selection": false,
+    "override_mode": "experimental",
+    "scan_path": "fixtures/game_dirs/battleye_sample",
+    "notes": [
+      "Sample title that relies on automatic marker detection and should resolve conservatively."
+    ]
+  }
+]

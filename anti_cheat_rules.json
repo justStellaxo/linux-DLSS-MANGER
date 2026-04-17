@@ -1,0 +1,22 @@
+[
+  {
+    "vendor": "EasyAntiCheat",
+    "markers": [
+      "EasyAntiCheat",
+      "EasyAntiCheat_EOS_Setup.exe"
+    ],
+    "default_policy": "blocked",
+    "anti_cheat_level": "high",
+    "notes": "Conservative default for protected titles and experimental override paths."
+  },
+  {
+    "vendor": "BattlEye",
+    "markers": [
+      "BattlEye",
+      "BEService.exe"
+    ],
+    "default_policy": "blocked",
+    "anti_cheat_level": "high",
+    "notes": "Treat presentation overrides and runtime swaps as blocked unless title is verified."
+  }
+]

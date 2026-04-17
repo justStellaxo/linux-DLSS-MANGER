@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DLLS Manager DLSS Catalog</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="rail">
+      <div class="rail-logo">DM</div>
+      <a class="rail-icon" href="./index.html">HM</a>
+      <a class="rail-icon" href="./index.html">LIB</a>
+      <a class="rail-icon is-active" href="./catalog.html">CAT</a>
+      <div class="rail-icon">CFG</div>
+      <div class="rail-icon">RB</div>
+    </aside>
+
+    <aside class="sidebar">
+      <div>
+        <div class="eyebrow">Catalog</div>
+        <h1 class="page-title">Official DLSS Versions</h1>
+        <p class="subtle">Official NVIDIA DLSS release list with local download state, direct release links, and managed download commands.</p>
+      </div>
+
+      <section class="surface">
+        <div class="section-head">
+          <h2 class="surface-title">Summary</h2>
+        </div>
+        <div id="catalog-summary" class="info-list"></div>
+      </section>
+
+      <section class="surface">
+        <div class="section-head">
+          <h2 class="surface-title">How To Use</h2>
+        </div>
+        <div class="stack-list">
+          <div class="stack-row">
+            <strong>Refresh catalog</strong>
+            <code>python3 main.py refresh-dlss-catalog</code>
+          </div>
+          <div class="stack-row">
+            <strong>Managed download</strong>
+            <code>python3 main.py download-dlss 3.7.10</code>
+          </div>
+          <div class="stack-row">
+            <strong>Export GUI data</strong>
+            <code>python3 main.py export-mock-ui-data</code>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main-panel">
+      <div class="topbar">
+        <label class="search-wrap">
+          <input id="catalog-search" class="search-input" type="search" placeholder="Filter versions, tags, or release names">
+        </label>
+        <div class="nav-actions">
+          <a class="nav-action" href="./index.html">Library</a>
+          <a class="nav-action is-active" href="./catalog.html">DLSS Catalog</a>
+        </div>
+      </div>
+
+      <section class="surface">
+        <div class="section-head">
+          <h2 class="surface-title">Catalog Entries</h2>
+          <span id="catalog-count" class="small-note"></span>
+        </div>
+        <div id="catalog-list" class="catalog-grid"></div>
+      </section>
+    </main>
+  </div>
+  <script src="mock-library.js"></script>
+  <script src="catalog.js"></script>
+</body>
+</html>

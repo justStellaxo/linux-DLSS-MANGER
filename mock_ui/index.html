@@ -3,105 +3,173 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DLLS Manager Mock UI</title>
+  <title>DLLS Manager GUI</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="app-shell">
-    <section class="panel library-panel">
-      <h1>Prototype Library</h1>
-      <p class="subtle">Interaktive Maske auf Basis der exportierten Planungsdaten.</p>
-      <div class="card capabilities-card">
-        <h2>System</h2>
-        <pre id="capabilities-summary"></pre>
+  <div class="app-shell">
+    <aside class="rail">
+      <div class="rail-logo">DM</div>
+      <a class="rail-icon" href="./index.html">HM</a>
+      <a class="rail-icon is-active" href="./index.html">LIB</a>
+      <a class="rail-icon" href="./catalog.html">CAT</a>
+      <div class="rail-icon">CFG</div>
+      <div class="rail-icon">RB</div>
+    </aside>
+
+    <aside class="sidebar">
+      <div>
+        <div class="eyebrow">Library</div>
+        <h1 class="page-title">Your Games</h1>
+        <p class="subtle">Steam-inspired GUI on top of the exported planner data. Payloads, launch toggles, and safety state stay on one page.</p>
       </div>
-      <div id="library" class="library-list"></div>
-    </section>
-    <section class="panel detail-panel">
-      <div id="detail-empty" class="empty-state">Select a game to inspect policy and launch preview.</div>
-      <div id="detail" class="hidden">
-        <div class="toolbar">
-          <label class="form-field">
-            <span>Game</span>
-            <select id="game-select"></select>
-          </label>
-          <label class="form-field">
-            <span>Profile</span>
-            <select id="profile-select"></select>
-          </label>
+
+      <section class="surface">
+        <div class="section-head">
+          <h2 class="surface-title">Browse</h2>
         </div>
-        <header class="detail-header">
-          <div>
-            <h2 id="game-name"></h2>
-            <p id="game-meta" class="subtle"></p>
-          </div>
-          <span id="status-badge" class="badge"></span>
-        </header>
-        <div class="grid">
-          <div class="card">
-            <h3>Game Summary</h3>
-            <pre id="game-summary"></pre>
-          </div>
-          <div class="card">
-            <h3>Base Profile</h3>
-            <pre id="profile-settings"></pre>
-          </div>
-          <div class="card">
-            <h3>Effective Profile</h3>
-            <pre id="effective-profile"></pre>
-          </div>
-          <div class="card">
-            <h3>Install Override</h3>
-            <pre id="override-config"></pre>
-          </div>
-          <div class="card">
-            <h3>Anti-Cheat</h3>
-            <pre id="anti-cheat"></pre>
-          </div>
-          <div class="card">
-            <h3>Requested Features</h3>
-            <pre id="features"></pre>
-          </div>
-          <div class="card">
-            <h3>Policy Reasons</h3>
-            <pre id="policy-reasons"></pre>
-          </div>
-          <div class="card">
-            <h3>Warnings</h3>
-            <pre id="warnings"></pre>
-          </div>
-          <div class="card">
-            <h3>Blocked Reasons</h3>
-            <pre id="blocked"></pre>
-          </div>
-          <div class="card">
-            <h3>Safe / Blocked Actions</h3>
-            <pre id="actions"></pre>
-          </div>
-          <div class="card">
-            <h3>CLI Commands</h3>
-            <pre id="cli-commands"></pre>
-          </div>
-          <div class="card">
-            <h3>Rollbacks</h3>
-            <pre id="rollbacks"></pre>
-          </div>
+        <div id="browse-summary" class="info-list"></div>
+      </section>
+
+      <section class="surface">
+        <div class="section-head">
+          <h2 class="surface-title">System</h2>
+          <span id="generated-at" class="small-note"></span>
         </div>
-        <div class="card preview-card">
-          <h3>Launch Preview</h3>
-          <pre id="preview"></pre>
+        <div id="system-badges" class="mini-kpis"></div>
+        <div id="capability-lines" class="stack-list"></div>
+      </section>
+    </aside>
+
+    <main class="main-panel">
+      <div class="topbar">
+        <label class="search-wrap">
+          <input id="search-input" class="search-input" type="search" placeholder="Search your library">
+        </label>
+        <div class="nav-actions">
+          <a class="nav-action is-active" href="./index.html">Library</a>
+          <a class="nav-action" href="./catalog.html">DLSS Catalog</a>
         </div>
-        <div class="card preview-card">
-          <h3>Mutation Plan</h3>
-          <pre id="mutation-plan"></pre>
-        </div>
-        <div class="card preview-card">
-          <h3>Policy Report</h3>
-          <pre id="policy-report"></pre>
-        </div>
+        <label class="profile-wrap">
+          <span>Profile</span>
+          <select id="profile-select"></select>
+        </label>
       </div>
-    </section>
-  </main>
+
+      <div id="detail-empty" class="empty-state">No exported installs available yet. Run <code>python3 main.py export-mock-ui-data</code> after discovery to populate the GUI.</div>
+
+      <section id="detail-view" class="library-layout hidden">
+        <div class="library-pane">
+          <section class="surface">
+            <div class="section-head">
+              <h3 class="surface-title">Library</h3>
+              <span id="library-count" class="small-note"></span>
+            </div>
+            <div id="library" class="library-list"></div>
+          </section>
+        </div>
+
+        <div class="detail-pane">
+          <section class="surface">
+            <div class="detail-banner">
+              <div class="detail-overline">Game Details</div>
+              <div class="banner-topline">
+                <div>
+                  <h2 id="game-name"></h2>
+                  <p id="game-meta" class="subtle"></p>
+                </div>
+                <div class="banner-badges">
+                  <span id="status-badge" class="badge"></span>
+                  <span id="release-badge" class="badge badge-support"></span>
+                </div>
+              </div>
+            </div>
+            <div id="detail-meta-strip" class="detail-meta-strip"></div>
+          </section>
+
+          <section class="surface detail-body">
+            <div class="option-stack">
+              <div>
+                <h3 class="surface-title">Launch Options</h3>
+                <p class="section-copy">GUI controls for DLSS payload selection and common Linux gaming launch toggles. These controls currently preview the resulting launch string on top of the planner output.</p>
+              </div>
+
+              <section class="option-section">
+                <div class="section-head">
+                  <h4 class="surface-title">DLSS Payload</h4>
+                </div>
+                <div id="payload-options" class="choice-grid"></div>
+              </section>
+
+              <section class="option-section">
+                <div class="section-head">
+                  <h4 class="surface-title">Runner Preset</h4>
+                </div>
+                <div id="runner-options" class="choice-grid"></div>
+              </section>
+
+              <section class="option-section">
+                <div class="section-head">
+                  <h4 class="surface-title">Runtime Toggles</h4>
+                </div>
+                <div id="runtime-options" class="option-list"></div>
+              </section>
+            </div>
+
+            <div class="option-stack">
+              <div>
+                <h3 class="surface-title">Launch Preview</h3>
+                <p class="section-copy">The preview reflects the selected mock controls, while the underlying install metadata and safety rules still come from the real planner export.</p>
+              </div>
+
+              <section class="command-preview">
+                <div class="command-label">Current Launch Command</div>
+                <pre id="command-preview" class="command-code"></pre>
+              </section>
+
+              <section class="command-preview">
+                <div class="command-label">Fallback / Troubleshooting</div>
+                <pre id="fallback-preview" class="command-code"></pre>
+              </section>
+
+              <div id="selection-summary" class="info-list compact"></div>
+              <div id="cli-commands" class="stack-list"></div>
+            </div>
+          </section>
+
+          <section class="detail-grid-bottom">
+            <section class="surface">
+              <div class="section-head">
+                <h3 class="surface-title">Safety</h3>
+              </div>
+              <div id="safety-summary" class="stack-list"></div>
+            </section>
+
+            <section class="surface">
+              <div class="section-head">
+                <h3 class="surface-title">Warnings</h3>
+              </div>
+              <div id="warnings-list" class="stack-list"></div>
+            </section>
+
+            <section class="surface">
+              <div class="section-head">
+                <h3 class="surface-title">Policy Reasons</h3>
+              </div>
+              <div id="policy-list" class="stack-list"></div>
+            </section>
+
+            <section class="surface">
+              <div class="section-head">
+                <h3 class="surface-title">Rollbacks</h3>
+              </div>
+              <div id="rollback-list" class="stack-list"></div>
+            </section>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
   <script src="mock-library.js"></script>
   <script src="app.js"></script>
 </body>

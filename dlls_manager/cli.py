@@ -1,5 +1,11 @@
 import argparse
 
+from dlls_manager.dlss_catalog import (
+    download_dlss_version,
+    get_dlss_version,
+    load_dlss_versions,
+    refresh_dlss_catalog,
+)
 from dlls_manager.detector import detect_capabilities
 from dlls_manager.install_db import discover_and_cache_installs, get_install, validate_install
 from dlls_manager.launcher_runtime import apply_install_plan, launch_install, prepare_launch
@@ -103,7 +109,7 @@ def cmd_validate_install(args: argparse.Namespace) -> None:
 
 
 def cmd_export_mock_ui_data(args: argparse.Namespace) -> None:
-    payload = export_mock_library()
+    payload = export_mock_library(refresh_catalog=not args.skip_catalog_refresh)
     MOCK_UI_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     MOCK_UI_DATA_FILE.write_text(dump_json(payload), encoding="utf-8")
     MOCK_UI_SCRIPT_FILE.write_text(build_mock_ui_script(payload), encoding="utf-8")
@@ -112,6 +118,30 @@ def cmd_export_mock_ui_data(args: argparse.Namespace) -> None:
         MOCK_UI_DATA_FILE.write_text(dump_json(payload), encoding="utf-8")
         MOCK_UI_SCRIPT_FILE.write_text(build_mock_ui_script(payload), encoding="utf-8")
     print(f"Wrote mock UI data to {MOCK_UI_DATA_FILE} and {MOCK_UI_SCRIPT_FILE}")
+
+
+def cmd_refresh_dlss_catalog(_: argparse.Namespace) -> None:
+    print(dump_json(refresh_dlss_catalog()))
+
+
+def cmd_list_dlss_catalog(_: argparse.Namespace) -> None:
+    for entry in load_dlss_versions():
+        if entry["id"] == "game_default":
+            print(f"- {entry['id']}: {entry['label']} [selectable={entry['selectable']}]")
+            continue
+        print(
+            f"- {entry['id']}: {entry['label']} "
+            f"[published_at={entry.get('published_at', 'n/a')}, downloaded={entry.get('downloaded', False)}, "
+            f"asset={entry.get('asset_name', 'n/a')}]"
+        )
+
+
+def cmd_show_dlss_version(args: argparse.Namespace) -> None:
+    print(dump_json(get_dlss_version(args.version_id)))
+
+
+def cmd_download_dlss(args: argparse.Namespace) -> None:
+    print(dump_json(download_dlss_version(args.version_id, force=args.force)))
 
 
 def cmd_list_profiles(_: argparse.Namespace) -> None:
@@ -239,8 +269,28 @@ def build_parser() -> argparse.ArgumentParser:
     explain.set_defaults(func=cmd_explain_policy)
 
     export = sub.add_parser("export-mock-ui-data", help="Export planner data for the static mock UI")
+    export.add_argument(
+        "--skip-catalog-refresh",
+        action="store_true",
+        help="Use the local DLSS catalog as-is without refreshing official NVIDIA releases first",
+    )
     export.add_argument("--snapshot", action="store_true", help="Persist export metadata to snapshots/")
     export.set_defaults(func=cmd_export_mock_ui_data)
+
+    refresh_dlss = sub.add_parser("refresh-dlss-catalog", help="Refresh dlss_versions.json from official NVIDIA releases")
+    refresh_dlss.set_defaults(func=cmd_refresh_dlss_catalog)
+
+    list_dlss = sub.add_parser("list-dlss-catalog", help="List known DLSS catalog entries")
+    list_dlss.set_defaults(func=cmd_list_dlss_catalog)
+
+    show_dlss = sub.add_parser("show-dlss-version", help="Show one DLSS catalog entry")
+    show_dlss.add_argument("version_id", help="DLSS version id such as 3.7.10")
+    show_dlss.set_defaults(func=cmd_show_dlss_version)
+
+    download_dlss = sub.add_parser("download-dlss", help="Download and extract one official DLSS runtime")
+    download_dlss.add_argument("version_id", help="DLSS version id such as 3.7.10")
+    download_dlss.add_argument("--force", action="store_true", help="Redownload even if the runtime is already present")
+    download_dlss.set_defaults(func=cmd_download_dlss)
 
     list_profiles_parser = sub.add_parser("list-profiles", help="List stored profile names")
     list_profiles_parser.set_defaults(func=cmd_list_profiles)

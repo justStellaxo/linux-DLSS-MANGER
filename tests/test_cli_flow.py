@@ -80,6 +80,7 @@ class CliFlowTests(unittest.TestCase):
         payload = json.loads(exported.read_text(encoding="utf-8"))
         self.assertTrue(payload["games"])
         self.assertIn("capabilities", payload)
+        self.assertIn("catalog_refresh", payload)
         self.assertIn("profiles", payload["games"][0])
 
 

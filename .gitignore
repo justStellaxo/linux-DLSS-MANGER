@@ -19,8 +19,11 @@ installs.json
 snapshots/
 rollbacks/
 install_overrides/
+dlss_runtime/
+dlss_downloads/
 mock_ui/mock-library.json
 mock_ui/mock-library.js
+gui_mockups/
 
 # OS/editor noise
 .DS_Store

@@ -204,6 +204,20 @@ class DlssVersionRecord(TypedDict):
     id: str
     label: str
     selectable: bool
+    version: NotRequired[str]
+    source: NotRequired[str]
+    release_name: NotRequired[str]
+    release_url: NotRequired[str]
+    published_at: NotRequired[str]
+    browser_download_url: NotRequired[str]
+    asset_name: NotRequired[str]
+    asset_size: NotRequired[int]
+    asset_content_type: NotRequired[str]
+    local_asset_path: NotRequired[str]
+    runtime_path: NotRequired[str]
+    local_asset_exists: NotRequired[bool]
+    downloaded: NotRequired[bool]
+    download_command: NotRequired[str]
 
 
 class MarkerHit(TypedDict):

@@ -59,7 +59,7 @@ class DataValidationTests(unittest.TestCase):
                 json.dumps([{"id": "3.7.10", "label": "DLSS 3.7.10", "selectable": "yes"}]),
                 encoding="utf-8",
             )
-            with patch("dlls_manager.dlss_policy.DLSS_VERSIONS_FILE", versions_path):
+            with patch("dlls_manager.dlss_catalog.DLSS_VERSIONS_FILE", versions_path):
                 with self.assertRaisesRegex(ValueError, "selectable as a boolean"):
                     load_dlss_versions()
 

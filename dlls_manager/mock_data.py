@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from dlls_manager.dlss_catalog import refresh_dlss_catalog
 from dlls_manager.detector import detect_capabilities
 from dlls_manager.dlss_policy import load_dlss_versions
 from dlls_manager.install_db import load_installs
@@ -10,11 +11,27 @@ from dlls_manager.profile_db import list_profiles, load_profile
 from dlls_manager.utils import dump_json
 
 
-def export_mock_library() -> dict:
+def _maybe_refresh_dlss_catalog() -> dict:
+    try:
+        refreshed = refresh_dlss_catalog()
+        return {
+            "status": "refreshed",
+            "details": refreshed,
+        }
+    except Exception as exc:
+        return {
+            "status": "refresh_failed",
+            "error": str(exc),
+        }
+
+
+def export_mock_library(refresh_catalog: bool = False) -> dict:
+    catalog_refresh = _maybe_refresh_dlss_catalog() if refresh_catalog else {"status": "not_requested"}
     profiles = list_profiles()
     if not profiles:
         return {
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "catalog_refresh": catalog_refresh,
             "profiles": [],
             "default_profile": None,
             "capabilities": detect_capabilities(),
@@ -71,6 +88,7 @@ def export_mock_library() -> dict:
         )
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "catalog_refresh": catalog_refresh,
         "profiles": profiles,
         "default_profile": default_profile,
         "dlss_versions": dlss_versions,

@@ -117,6 +117,10 @@ The current CLI surface includes:
 - `launch-preview`
 - `explain-policy`
 - `export-mock-ui-data`
+- `refresh-dlss-catalog`
+- `list-dlss-catalog`
+- `show-dlss-version`
+- `download-dlss`
 - `list-profiles`
 - `show-profile`
 - `update-profile`
@@ -148,6 +152,72 @@ The project currently uses `unittest`.
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+## GUI Preview
+
+The repo now also includes an interactive static GUI in `mock_ui/` built on the exported planner data.
+
+Refresh the GUI data:
+
+```bash
+python3 main.py export-mock-ui-data
+```
+
+`export-mock-ui-data` now refreshes the official DLSS catalog automatically on start before writing the GUI payload. If you explicitly want to stay offline and reuse the local cached catalog, use:
+
+```bash
+python3 main.py export-mock-ui-data --skip-catalog-refresh
+```
+
+Serve the frontend locally from the project root:
+
+```bash
+python3 -m http.server 8080
+```
+
+Then open:
+
+```text
+http://localhost:8080/mock_ui/
+```
+
+DLSS catalog page:
+
+```text
+http://localhost:8080/mock_ui/catalog.html
+```
+
+Current GUI scope:
+
+- Steam-inspired library/detail layout instead of raw debug JSON
+- per-title DLSS payload picker in the frontend preview, backed by the full official DLSS catalog
+- launch-toggle preview for MangoHud, GameMode, and common Proton compatibility env vars
+- command preview, safety summary, policy reasons, and rollback visibility
+- separate DLSS catalog page with sorted official versions, release links, and managed download commands
+
+The GUI is still frontend-only. The interactive controls currently preview settings on top of the exported planner state; they do not yet persist changes back into the CLI/backend.
+
+## DLSS Catalog And Downloads
+
+The DLSS catalog is now sourced from the official `NVIDIA/DLSS` GitHub releases feed and stored in `dlss_versions.json`.
+
+Typical catalog workflow:
+
+```bash
+python3 main.py refresh-dlss-catalog
+python3 main.py list-dlss-catalog
+python3 main.py show-dlss-version 3.7.10
+python3 main.py download-dlss 3.7.10
+```
+
+What `download-dlss` does:
+
+- downloads the official Windows SDK ZIP from the matching NVIDIA release
+- stores the original archive under `dlss_downloads/<version>/`
+- extracts `nvngx_dlss.dll` into `dlss_runtime/<version>/`
+- writes download metadata alongside the extracted runtime
+
+This means the existing mutation/apply flow can resolve downloaded DLSS runtimes without needing fixture files.
 
 ## Safety Notes
 

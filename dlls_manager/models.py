@@ -56,6 +56,8 @@ ExecutionStrategy = Literal[
     "native_exec",
 ]
 ReleaseSupportLevel = Literal["supported", "advanced", "experimental"]
+ApplyLifecycleStatus = Literal["applied", "failed", "failed_rolled_back"]
+RollbackLifecycleStatus = Literal["not_run", "succeeded", "failed"]
 
 ANTI_CHEAT_POLICIES: set[AntiCheatPolicy] = {"verified_supported", "warn", "blocked"}
 ANTI_CHEAT_LEVELS: set[AntiCheatLevel] = {"none", "unknown", "low", "high"}
@@ -298,6 +300,22 @@ class RollbackFileRecord(TypedDict):
     action: str
 
 
+class AutoRollbackResult(TypedDict):
+    attempted: bool
+    restored: list[str]
+    removed: list[str]
+    errors: list[str]
+
+
+class RollbackExecutionResult(TypedDict):
+    attempted: bool
+    executed_at: str | None
+    restored: list[str]
+    removed: list[str]
+    errors: list[str]
+    status: RollbackLifecycleStatus
+
+
 class ReleaseSupportStatus(TypedDict):
     level: ReleaseSupportLevel
     note: str
@@ -314,6 +332,17 @@ class ResultSummary(TypedDict):
     blocked: bool
 
 
+class RollbackMetadata(TypedDict):
+    plan: MutationPlan
+    applied_steps: list[str]
+    apply_errors: list[str]
+    auto_rollback: AutoRollbackResult | None
+    status: ApplyLifecycleStatus
+    apply_status: ApplyLifecycleStatus
+    rollback_status: RollbackLifecycleStatus
+    rollback: RollbackExecutionResult
+
+
 class RollbackRecord(TypedDict):
     rollback_id: str
     install_id: str
@@ -321,7 +350,7 @@ class RollbackRecord(TypedDict):
     created_at: str
     files: list[RollbackFileRecord]
     launcher_sync_paths: list[str]
-    metadata: dict
+    metadata: RollbackMetadata
 
 
 class ApplyResult(TypedDict):

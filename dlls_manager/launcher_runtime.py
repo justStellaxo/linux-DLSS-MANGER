@@ -61,15 +61,18 @@ def _final_command(prepared: PreparedLaunch) -> list[str]:
     return [*launch_plan["wrappers"], *execution["executable"], *args]
 
 
-def _rollback_after_launch_failure(applied: ApplyResult | None, warnings: list[str], errors: list[str]) -> tuple[list[str], list[str]]:
+def _rollback_after_launch_failure(
+    applied: ApplyResult | None,
+    warnings: list[str],
+    errors: list[str],
+    success_warning: str = "Launch failed after applying mutations; automatic rollback restored the modified files.",
+) -> tuple[list[str], list[str]]:
     if not applied or not applied.get("rollback_id"):
         return warnings, errors
 
     rollback = rollback_mutation(str(applied["rollback_id"]))
     if rollback["ok"]:
-        warnings.append(
-            "Launch failed after applying mutations; automatic rollback restored the modified files."
-        )
+        warnings.append(success_warning)
         return warnings, errors
 
     errors.extend(f"auto-rollback: {message}" for message in rollback["errors"])
@@ -167,20 +170,28 @@ def launch_install(
             warnings.append(completed.stdout.strip())
         if completed.stderr:
             warnings.append(completed.stderr.strip())
+        exit_errors = [] if completed.returncode == 0 else [f"Launch exited with status {completed.returncode}"]
+        if completed.returncode != 0:
+            warnings, exit_errors = _rollback_after_launch_failure(
+                applied,
+                warnings,
+                exit_errors,
+                success_warning="Launch exited with a non-zero status after applying mutations; automatic rollback restored the modified files.",
+            )
         return {
             "ok": completed.returncode == 0,
             "pid": None,
             "returncode": completed.returncode,
             "command": command,
             "applied": applied,
-            "errors": [] if completed.returncode == 0 else [f"Launch exited with status {completed.returncode}"],
+            "errors": exit_errors,
             "warnings": warnings,
             "summary": build_result_summary(
                 prepared["install"],
                 profile_name,
                 prepared["launch_plan"]["compatibility_status"],
                 warnings,
-                [] if completed.returncode == 0 else [f"Launch exited with status {completed.returncode}"],
+                exit_errors,
             ),
         }
 

@@ -648,5 +648,249 @@ class ApplyAndLaunchTests(unittest.TestCase):
                 self.assertTrue(any("automatic rollback restored" in warning.lower() for warning in result["warnings"]))
 
 
+    def test_launch_wait_nonzero_exit_auto_rolls_back_mutations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            installs_file = root / "installs.json"
+            profiles_dir = root / "profiles"
+            overrides_dir = root / "overrides"
+            rollbacks_dir = root / "rollbacks"
+            dlss_runtime_dir = root / "dlss_runtime"
+            lug_dir = root / "lug"
+            install_root = root / "game"
+            install_root.mkdir(parents=True)
+            profiles_dir.mkdir()
+            lug_dir.mkdir()
+            target_dll = install_root / "nvngx_dlss.dll"
+            target_dll.write_text("old-runtime", encoding="utf-8")
+            runtime_dir = dlss_runtime_dir / "3.7.10"
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "nvngx_dlss.dll").write_text("new-runtime", encoding="utf-8")
+
+            installs_file.write_text(
+                json.dumps(
+                    {
+                        "created_at": "2026-04-17T00:00:00Z",
+                        "warnings": [],
+                        "installs": [
+                            {
+                                "id": "starcitizen_lug:test-wait-exit-failure",
+                                "display_name": "Wait Exit Failure Test",
+                                "source": "starcitizen_lug",
+                                "source_id": "test-wait-exit-failure",
+                                "launcher_family": "rsi",
+                                "store_family": "rsi",
+                                "execution_strategy": "native_exec",
+                                "runtime": "native",
+                                "install_root": str(install_root),
+                                "prefix_path": str(install_root),
+                                "runner_name": None,
+                                "runner_path": None,
+                                "exe_path": None,
+                                "script_path": None,
+                                "desktop_file": None,
+                                "app_id": None,
+                                "launch_command": [sys.executable, "-c", "import sys; sys.exit(23)"],
+                                "launch_env": {},
+                                "launch_args": "",
+                                "wrapper_chain": [],
+                                "working_directory": str(root),
+                                "scan_paths": [str(install_root)],
+                                "notes": [],
+                                "validation_errors": [],
+                                "validation_warnings": [],
+                                "discovery_confidence": "high",
+                                "anti_cheat": "none",
+                                "anti_cheat_vendor": None,
+                                "anti_cheat_policy": "verified_supported",
+                                "supports_dlss_override": True,
+                                "supports_dlss_version_selection": True,
+                                "override_mode": "experimental",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("dlls_manager.install_db.INSTALLS_FILE", installs_file), patch(
+                "dlls_manager.profile_db.PROFILES_DIR", profiles_dir
+            ), patch("dlls_manager.override_db.INSTALL_OVERRIDES_DIR", overrides_dir), patch(
+                "dlls_manager.mutations.base.ROLLBACKS_DIR", rollbacks_dir
+            ), patch("dlls_manager.dlss_mutations.DLSS_RUNTIME_DIR", dlss_runtime_dir), patch(
+                "dlls_manager.launcher_persistence.STARCITIZEN_LUG_DIR", lug_dir
+            ):
+                save_profile(
+                    "default",
+                    {
+                        "enable_nvapi": False,
+                        "enable_smooth_motion": False,
+                        "use_gamemode": False,
+                        "use_mangohud": False,
+                        "launch_args": "",
+                        "custom_env": {},
+                        "dlss_mode": "game_default",
+                        "dlss_version": "3.7.10",
+                        "allow_unsupported_override": False,
+                        "safety_mode": "strict",
+                    },
+                )
+                save_install_override(
+                    "starcitizen_lug:test-wait-exit-failure",
+                    {
+                        "install_id": "starcitizen_lug:test-wait-exit-failure",
+                        "extra_env": {},
+                        "extra_wrappers": [],
+                        "launch_args": "",
+                        "dlss_version": None,
+                        "enable_nvapi": None,
+                        "enable_smooth_motion": None,
+                        "use_gamemode": None,
+                        "use_mangohud": None,
+                        "allow_unsupported_override": None,
+                        "sync_to_launcher": True,
+                        "dlss_target_path": str(target_dll),
+                        "notes": [],
+                    },
+                )
+
+                result = launch_install("starcitizen_lug:test-wait-exit-failure", "default", wait=True)
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["returncode"], 23)
+                self.assertEqual(result["errors"], ["Launch exited with status 23"])
+                self.assertEqual(target_dll.read_text(encoding="utf-8"), "old-runtime")
+                self.assertFalse((lug_dir / "dlls_manager_overrides" / "test-wait-exit-failure.json").exists())
+                self.assertTrue(any("automatic rollback restored" in warning.lower() for warning in result["warnings"]))
+
+    def test_launch_wait_nonzero_exit_records_applied_steps_in_rollback_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            installs_file = root / "installs.json"
+            profiles_dir = root / "profiles"
+            overrides_dir = root / "overrides"
+            rollbacks_dir = root / "rollbacks"
+            dlss_runtime_dir = root / "dlss_runtime"
+            lug_dir = root / "lug"
+            install_root = root / "game"
+            install_root.mkdir(parents=True)
+            profiles_dir.mkdir()
+            lug_dir.mkdir()
+            target_dll = install_root / "nvngx_dlss.dll"
+            target_dll.write_text("old-runtime", encoding="utf-8")
+            runtime_dir = dlss_runtime_dir / "3.7.10"
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "nvngx_dlss.dll").write_text("new-runtime", encoding="utf-8")
+
+            installs_file.write_text(
+                json.dumps(
+                    {
+                        "created_at": "2026-04-17T00:00:00Z",
+                        "warnings": [],
+                        "installs": [
+                            {
+                                "id": "starcitizen_lug:test-wait-exit-manifest",
+                                "display_name": "Wait Exit Manifest Test",
+                                "source": "starcitizen_lug",
+                                "source_id": "test-wait-exit-manifest",
+                                "launcher_family": "rsi",
+                                "store_family": "rsi",
+                                "execution_strategy": "native_exec",
+                                "runtime": "native",
+                                "install_root": str(install_root),
+                                "prefix_path": str(install_root),
+                                "runner_name": None,
+                                "runner_path": None,
+                                "exe_path": None,
+                                "script_path": None,
+                                "desktop_file": None,
+                                "app_id": None,
+                                "launch_command": [sys.executable, "-c", "import sys; sys.exit(17)"],
+                                "launch_env": {},
+                                "launch_args": "",
+                                "wrapper_chain": [],
+                                "working_directory": str(root),
+                                "scan_paths": [str(install_root)],
+                                "notes": [],
+                                "validation_errors": [],
+                                "validation_warnings": [],
+                                "discovery_confidence": "high",
+                                "anti_cheat": "none",
+                                "anti_cheat_vendor": None,
+                                "anti_cheat_policy": "verified_supported",
+                                "supports_dlss_override": True,
+                                "supports_dlss_version_selection": True,
+                                "override_mode": "experimental",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("dlls_manager.install_db.INSTALLS_FILE", installs_file), patch(
+                "dlls_manager.profile_db.PROFILES_DIR", profiles_dir
+            ), patch("dlls_manager.override_db.INSTALL_OVERRIDES_DIR", overrides_dir), patch(
+                "dlls_manager.mutations.base.ROLLBACKS_DIR", rollbacks_dir
+            ), patch("dlls_manager.dlss_mutations.DLSS_RUNTIME_DIR", dlss_runtime_dir), patch(
+                "dlls_manager.launcher_persistence.STARCITIZEN_LUG_DIR", lug_dir
+            ):
+                save_profile(
+                    "default",
+                    {
+                        "enable_nvapi": False,
+                        "enable_smooth_motion": False,
+                        "use_gamemode": False,
+                        "use_mangohud": False,
+                        "launch_args": "",
+                        "custom_env": {},
+                        "dlss_mode": "game_default",
+                        "dlss_version": "3.7.10",
+                        "allow_unsupported_override": False,
+                        "safety_mode": "strict",
+                    },
+                )
+                save_install_override(
+                    "starcitizen_lug:test-wait-exit-manifest",
+                    {
+                        "install_id": "starcitizen_lug:test-wait-exit-manifest",
+                        "extra_env": {},
+                        "extra_wrappers": [],
+                        "launch_args": "",
+                        "dlss_version": None,
+                        "enable_nvapi": None,
+                        "enable_smooth_motion": None,
+                        "use_gamemode": None,
+                        "use_mangohud": None,
+                        "allow_unsupported_override": None,
+                        "sync_to_launcher": True,
+                        "dlss_target_path": str(target_dll),
+                        "notes": [],
+                    },
+                )
+
+                result = launch_install("starcitizen_lug:test-wait-exit-manifest", "default", wait=True)
+                self.assertFalse(result["ok"])
+                self.assertIsNotNone(result["applied"])
+
+                rollback_id = str(result["applied"]["rollback_id"])
+                record = load_rollback_record(rollback_id)
+                self.assertEqual(record["install_id"], "starcitizen_lug:test-wait-exit-manifest")
+                self.assertEqual(
+                    record["metadata"]["applied_steps"],
+                    [
+                        "dlss-3.7.10",
+                        "sync-rsi-starcitizen_lug:test-wait-exit-manifest",
+                    ],
+                )
+                self.assertEqual(len(record["files"]), 2)
+                self.assertEqual(
+                    {entry["target_path"] for entry in record["files"]},
+                    {
+                        str(target_dll),
+                        str(lug_dir / "dlls_manager_overrides" / "test-wait-exit-manifest.json"),
+                    },
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

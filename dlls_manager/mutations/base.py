@@ -6,7 +6,19 @@ from pathlib import Path
 
 from dlls_manager.dlss_mutations import resolve_dlss_runtime_path, resolve_dlss_target_path
 from dlls_manager.launcher_persistence import build_launcher_sync_steps
-from dlls_manager.models import ApplyResult, InstallOverride, LauncherInstallRecord, MutationPlan, MutationStep, RollbackFileRecord, RollbackRecord
+from dlls_manager.models import (
+    ApplyLifecycleStatus,
+    ApplyResult,
+    InstallOverride,
+    LauncherInstallRecord,
+    MutationPlan,
+    MutationStep,
+    RollbackExecutionResult,
+    RollbackFileRecord,
+    RollbackMetadata,
+    RollbackRecord,
+    RollbackLifecycleStatus,
+)
 from dlls_manager.paths import ROLLBACKS_DIR
 from dlls_manager.utils import atomic_write_json, atomic_write_text, ensure_directory, utc_timestamp
 
@@ -138,6 +150,54 @@ def _rollback_file_records(file_records: list[RollbackFileRecord]) -> tuple[list
     return restored, removed, errors
 
 
+def _empty_manual_rollback() -> RollbackExecutionResult:
+    return {
+        "attempted": False,
+        "executed_at": None,
+        "restored": [],
+        "removed": [],
+        "errors": [],
+        "status": "not_run",
+    }
+
+
+def _normalize_rollback_metadata(record: RollbackRecord) -> RollbackMetadata:
+    raw_metadata = record.get("metadata", {})
+    if not isinstance(raw_metadata, dict):
+        raw_metadata = {}
+
+    apply_status = raw_metadata.get("apply_status") or raw_metadata.get("status") or "applied"
+    if apply_status not in {"applied", "failed", "failed_rolled_back"}:
+        apply_status = "applied"
+
+    raw_rollback = raw_metadata.get("rollback")
+    if not isinstance(raw_rollback, dict):
+        raw_rollback = {}
+
+    rollback_status = raw_metadata.get("rollback_status") or raw_rollback.get("status") or "not_run"
+    if rollback_status not in {"not_run", "succeeded", "failed"}:
+        rollback_status = "not_run"
+
+    rollback = _empty_manual_rollback()
+    rollback["attempted"] = bool(raw_rollback.get("attempted", False))
+    rollback["executed_at"] = raw_rollback.get("executed_at")
+    rollback["restored"] = list(raw_rollback.get("restored", []))
+    rollback["removed"] = list(raw_rollback.get("removed", []))
+    rollback["errors"] = list(raw_rollback.get("errors", []))
+    rollback["status"] = rollback_status
+
+    return {
+        "plan": raw_metadata["plan"],
+        "applied_steps": list(raw_metadata.get("applied_steps", [])),
+        "apply_errors": list(raw_metadata.get("apply_errors", [])),
+        "auto_rollback": raw_metadata.get("auto_rollback"),
+        "status": apply_status,
+        "apply_status": apply_status,
+        "rollback_status": rollback_status,
+        "rollback": rollback,
+    }
+
+
 def apply_mutation_plan(plan: MutationPlan, force: bool = False) -> ApplyResult:
     if plan["blocked_reasons"] and not force:
         return {
@@ -210,6 +270,7 @@ def apply_mutation_plan(plan: MutationPlan, force: bool = False) -> ApplyResult:
                 "Mutation apply failed after partial changes; automatic rollback restored the previously modified paths."
             )
 
+    apply_status: ApplyLifecycleStatus = "applied" if not errors else "failed_rolled_back" if rollback_result else "failed"
     manifest: RollbackRecord = {
         "rollback_id": rollback_id,
         "install_id": plan["install_id"],
@@ -222,7 +283,10 @@ def apply_mutation_plan(plan: MutationPlan, force: bool = False) -> ApplyResult:
             "applied_steps": applied_steps,
             "apply_errors": errors,
             "auto_rollback": rollback_result,
-            "status": "applied" if not errors else "failed_rolled_back" if rollback_result else "failed",
+            "status": apply_status,
+            "apply_status": apply_status,
+            "rollback_status": "not_run",
+            "rollback": _empty_manual_rollback(),
         },
     }
     atomic_write_json(rollback_dir / "manifest.json", manifest)
@@ -246,7 +310,9 @@ def load_rollback_record(rollback_id: str) -> RollbackRecord:
     payload = Path(manifest_path).read_text(encoding="utf-8")
     import json
 
-    return json.loads(payload)
+    record: RollbackRecord = json.loads(payload)
+    record["metadata"] = _normalize_rollback_metadata(record)
+    return record
 
 
 def list_rollbacks() -> list[dict]:
@@ -270,10 +336,24 @@ def list_rollbacks() -> list[dict]:
 def rollback_mutation(rollback_id: str) -> dict:
     record = load_rollback_record(rollback_id)
     restored, removed, errors = _rollback_file_records(record["files"])
+    rollback_status: RollbackLifecycleStatus = "succeeded" if not errors else "failed"
+    metadata = _normalize_rollback_metadata(record)
+    metadata["rollback_status"] = rollback_status
+    metadata["rollback"] = {
+        "attempted": True,
+        "executed_at": utc_timestamp(),
+        "restored": restored,
+        "removed": removed,
+        "errors": errors,
+        "status": rollback_status,
+    }
+    record["metadata"] = metadata
+    atomic_write_json(_rollback_dir(rollback_id) / "manifest.json", record)
 
     return {
         "ok": not errors,
         "rollback_id": rollback_id,
+        "status": rollback_status,
         "restored": restored,
         "removed": removed,
         "errors": errors,

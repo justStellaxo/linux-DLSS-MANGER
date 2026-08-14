@@ -5,8 +5,8 @@ from dlls_manager.models import LauncherInstallRecord, ReleaseSupportStatus, Res
 
 _SOURCE_SUPPORT: dict[str, ReleaseSupportStatus] = {
     "steam": {
-        "level": "supported",
-        "note": "Primary release adapter for the first alpha. Discovery, planning, apply, launch, and rollback are release-signoff paths.",
+        "level": "advanced",
+        "note": "Primary adapter, but Steam launch-option sync still depends on localconfig.vdf mutation and real-client validation. Treat launcher-sync workflows as advanced until live verification is complete.",
     },
     "faugus": {
         "level": "advanced",

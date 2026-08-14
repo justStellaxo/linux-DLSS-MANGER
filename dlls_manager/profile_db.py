@@ -17,13 +17,21 @@ def validate_profile(profile_name: str, profile: dict) -> Profile:
     validated.setdefault("dlss_version", None)
     validated.setdefault("allow_unsupported_override", False)
     validated.setdefault("safety_mode", "strict")
+    validated.setdefault("dlss_sr_preset", None)
+    validated.setdefault("dlss_rr_preset", None)
+    validated.setdefault("dlss_fg_override", None)
+    validated.setdefault("enable_ngx_updater", False)
+    validated.setdefault("enable_hags", False)
+    validated.setdefault("enable_vkreflex", False)
+    validated.setdefault("proton_dlss_upgrade", None)
 
     if validated["safety_mode"] not in SAFETY_MODES:
         raise ValueError(
             f"Profile '{profile_name}' has invalid safety_mode '{validated['safety_mode']}'. "
             f"Expected one of: {', '.join(sorted(SAFETY_MODES))}"
         )
-    for key in ("enable_nvapi", "enable_smooth_motion", "use_gamemode", "use_mangohud", "allow_unsupported_override"):
+    for key in ("enable_nvapi", "enable_smooth_motion", "use_gamemode", "use_mangohud", "allow_unsupported_override",
+                "enable_ngx_updater", "enable_hags", "enable_vkreflex"):
         if not isinstance(validated[key], bool):
             raise ValueError(f"Profile '{profile_name}' must define {key} as a boolean.")
     if not isinstance(validated["custom_env"], dict):
@@ -95,6 +103,21 @@ def update_profile(profile_name: str, updates: dict[str, str]) -> Profile:
             current["custom_env"][env_key] = raw_value
             continue
         current[key] = _coerce_profile_value(key, raw_value)
+    return save_profile(profile_name, current)
+
+
+def apply_profile_updates(profile_name: str, updates: dict) -> Profile:
+    current = dict(load_profile(profile_name))
+    for key, value in updates.items():
+        if key == "custom_env":
+            if not isinstance(value, dict):
+                raise ValueError("custom_env must be an object.")
+            current[key] = value
+            continue
+        if key == "dlss_version":
+            current[key] = None if value in {"", None, "none", "null"} else value
+            continue
+        current[key] = value
     return save_profile(profile_name, current)
 
 

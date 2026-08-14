@@ -8,5 +8,12 @@
   "allow_unsupported_override": false,
   "safety_mode": "strict",
   "launch_args": "",
-  "custom_env": {}
+  "custom_env": {},
+  "dlss_sr_preset": null,
+  "dlss_rr_preset": null,
+  "dlss_fg_override": null,
+  "enable_ngx_updater": false,
+  "enable_hags": false,
+  "enable_vkreflex": false,
+  "proton_dlss_upgrade": null
 }

@@ -5,14 +5,16 @@ import shlex
 import subprocess
 
 from dlls_manager.execution.base import build_execution_plan
+from dlls_manager.execution.steam import is_steam_backed_install
 from dlls_manager.install_db import get_install
-from dlls_manager.launch_plan import build_effective_profile, build_install_launch_plan
+from dlls_manager.launch_plan import build_effective_profile, build_install_launch_plan, missing_runtime_tools
 from dlls_manager.models import ApplyResult, LaunchResult, PreparedLaunch
 from dlls_manager.mutations.base import apply_mutation_plan
 from dlls_manager.mutations import rollback_mutation
 from dlls_manager.override_db import load_install_override
 from dlls_manager.profile_db import load_profile
 from dlls_manager.release_support import build_result_summary
+from dlls_manager.utils import is_process_running
 
 
 def prepare_launch(install_id: str, profile_name: str) -> PreparedLaunch:
@@ -55,10 +57,22 @@ def apply_install_plan(install_id: str, profile_name: str, force: bool = False) 
 
 
 def _final_command(prepared: PreparedLaunch) -> list[str]:
-    launch_plan = prepared["launch_plan"]
     execution = prepared["execution"]
+    if is_steam_backed_install(prepared["install"]):
+        args = shlex.split(execution["args"]) if execution["args"] else []
+        return [*execution["executable"], *args]
+
+    launch_plan = prepared["launch_plan"]
     args = shlex.split(launch_plan["args"]) if launch_plan["args"] else []
     return [*launch_plan["wrappers"], *execution["executable"], *args]
+
+
+def _steam_is_running() -> bool:
+    return is_process_running({"steam"})
+
+
+def _steam_sync_active(prepared: PreparedLaunch) -> bool:
+    return any(step["id"].startswith("sync-steam-") for step in prepared["mutation_plan"]["steps"])
 
 
 def _rollback_after_launch_failure(
@@ -102,6 +116,26 @@ def launch_install(
             "summary": build_result_summary(prepared["install"], profile_name, "blocked", warnings, blocked_reasons),
         }
 
+    unavailable_tools = missing_runtime_tools(prepared["install"], prepared["override"], prepared["launch_plan"]["wrappers"])
+    if unavailable_tools and not force:
+        errors = [f"Required launch wrapper is unavailable: {tool}" for tool in unavailable_tools]
+        return {
+            "ok": False,
+            "pid": None,
+            "returncode": None,
+            "command": command,
+            "applied": None,
+            "errors": errors,
+            "warnings": warnings,
+            "summary": build_result_summary(
+                prepared["install"],
+                profile_name,
+                prepared["launch_plan"]["compatibility_status"],
+                warnings,
+                errors,
+            ),
+        }
+
     applied: ApplyResult | None = None
     if not dry_run:
         applied = apply_mutation_plan(prepared["mutation_plan"], force=force)
@@ -124,10 +158,34 @@ def launch_install(
             }
 
     env = os.environ.copy()
-    env.update(prepared["launch_plan"]["env"])
+    if is_steam_backed_install(prepared["install"]):
+        env.update(prepared["execution"]["env"])
+    else:
+        env.update(prepared["launch_plan"]["env"])
     working_directory = prepared["execution"]["working_directory"] or None
 
     if dry_run:
+        return {
+            "ok": True,
+            "pid": None,
+            "returncode": None,
+            "command": command,
+            "applied": applied,
+            "errors": [],
+            "warnings": warnings,
+            "summary": build_result_summary(
+                prepared["install"],
+                profile_name,
+                prepared["launch_plan"]["compatibility_status"],
+                warnings,
+                [],
+                ),
+            }
+
+    if _steam_sync_active(prepared) and _steam_is_running():
+        warnings.append(
+            "Steam launcher sync was applied, but automatic launch was skipped because Steam is already running and may not reload localconfig.vdf until restart. Restart Steam and launch the game from the Steam client."
+        )
         return {
             "ok": True,
             "pid": None,

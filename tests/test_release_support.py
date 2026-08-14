@@ -4,7 +4,7 @@ from dlls_manager.release_support import get_release_support
 
 
 class ReleaseSupportTests(unittest.TestCase):
-    def test_steam_is_supported(self) -> None:
+    def test_steam_is_advanced(self) -> None:
         install = {
             "id": "steam:test",
             "display_name": "Test",
@@ -42,7 +42,7 @@ class ReleaseSupportTests(unittest.TestCase):
 
         support = get_release_support(install)
 
-        self.assertEqual(support["level"], "supported")
+        self.assertEqual(support["level"], "advanced")
 
     def test_heroic_is_experimental(self) -> None:
         install = {

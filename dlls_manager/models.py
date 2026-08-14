@@ -141,6 +141,13 @@ class Profile(TypedDict):
     dlss_version: str | None
     allow_unsupported_override: bool
     safety_mode: SafetyMode
+    dlss_sr_preset: NotRequired[str | None]
+    dlss_rr_preset: NotRequired[str | None]
+    dlss_fg_override: NotRequired[str | None]
+    enable_ngx_updater: NotRequired[bool]
+    enable_hags: NotRequired[bool]
+    enable_vkreflex: NotRequired[bool]
+    proton_dlss_upgrade: NotRequired[str | None]
 
 
 class InstallOverride(TypedDict):
@@ -220,6 +227,10 @@ class DlssVersionRecord(TypedDict):
     local_asset_exists: NotRequired[bool]
     downloaded: NotRequired[bool]
     download_command: NotRequired[str]
+    rr_runtime_path: NotRequired[str]
+    fg_runtime_path: NotRequired[str]
+    has_rr_dll: NotRequired[bool]
+    has_fg_dll: NotRequired[bool]
 
 
 class MarkerHit(TypedDict):

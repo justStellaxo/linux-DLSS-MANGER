@@ -162,6 +162,38 @@ class DiscoveryInstallTests(unittest.TestCase):
 
         self.assertEqual(installs, [])
 
+    def test_desktop_entry_discovery_promotes_steam_uri_entries_to_steam_shortcuts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            apps_dir = Path(tmp) / "applications"
+            apps_dir.mkdir()
+            (apps_dir / "warhammer3.desktop").write_text(
+                "\n".join(
+                    [
+                        "[Desktop Entry]",
+                        "Name=Total War: WARHAMMER III",
+                        "Categories=Game;",
+                        "Exec=/usr/bin/gamemoderun /usr/bin/steam steam://rungameid/1142710",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("dlls_manager.discovery.base.LOCAL_APPLICATIONS_DIR", apps_dir):
+                installs = discover_desktop_entry_installations()
+
+        self.assertEqual(len(installs), 1)
+        install = installs[0]
+        self.assertEqual(install["launcher_family"], "steam")
+        self.assertEqual(install["store_family"], "steam")
+        self.assertEqual(install["execution_strategy"], "steam_shortcut")
+        self.assertEqual(install["app_id"], "1142710")
+        self.assertEqual(install["launch_command"], ["steam", "-applaunch", "1142710"])
+        self.assertEqual(install["wrapper_chain"], ["gamemoderun"])
+        self.assertIsNone(install["install_root"])
+        self.assertIsNone(install["exe_path"])
+        self.assertEqual(install["scan_paths"], [])
+        self.assertIn("Steam shortcut", install["notes"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

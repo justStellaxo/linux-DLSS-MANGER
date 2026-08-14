@@ -14,7 +14,7 @@ Implemented today:
 - Installation discovery for Steam, Faugus, Star Citizen LUG, Heroic, Lutris, Bottles, and generic `.desktop` entries
 - Release-support labeling for discovered installs (`supported`, `advanced`, `experimental`)
 - Policy-aware launch planning with anti-cheat and DLSS gating
-- Mutation planning for DLSS runtime copy, Steam launch-option sync, and launcher sidecar sync
+- Mutation planning for DLSS runtime copy, Steam localconfig launch-option sync, and launcher sidecar sync
 - Rollback manifests and rollback execution, including automatic rollback after partial apply failures and launch-start failures
 - Static mock UI export backed by the same planner data model
 - Regression tests for discovery, policy logic, CLI flow, snapshots, apply/launch, overrides, and release-critical failure paths
@@ -96,6 +96,8 @@ python3 main.py apply --install-id steam:sample-dx11 --profile default
 python3 main.py launch --install-id steam:sample-dx11 --profile default --dry-run
 ```
 
+For Steam-backed installs, launcher sync is now explicit opt-in. When enabled, DLLS Manager writes launch options into Steam's `localconfig.vdf`; if Steam is already running, restart Steam before expecting those changes to apply.
+
 5. Roll back changes if needed
 
 ```bash
@@ -139,37 +141,67 @@ Run `python3 main.py --help` for the full command list and flags.
 
 The first release candidate should be treated as a CLI-first alpha with explicit adapter tiers:
 
-- `supported`: Steam
-- `advanced`: Faugus, Star Citizen LUG
+- `advanced`: Steam, Faugus, Star Citizen LUG
 - `experimental`: Heroic, Lutris, Bottles, generic `.desktop` imports, and manual/generic paths
 
 `list-installs` and `prepare-launch` surface this release-support level directly so the CLI reflects the release boundary instead of hiding it in docs only.
 
 ## Testing
 
-The project currently uses `unittest`.
+The project now uses both `unittest` for the Python domain layer and `pytest` + Playwright for the live web UI.
 
 ```bash
 python3 -m unittest discover -s tests -v
+.venv/bin/pytest tests_e2e -q
 ```
 
-## GUI Preview
+Coverage map and current residual-risk notes:
 
-The repo now also includes an interactive static GUI in `mock_ui/` built on the exported planner data.
+- [TEST_MATRIX.md](TEST_MATRIX.md)
 
-Refresh the GUI data:
+Install the browser runtime for Playwright once per machine:
+
+```bash
+.venv/bin/python -m playwright install chromium
+```
+
+## Real UI
+
+The primary frontend is now the real local web UI served directly from the Python backend. It persists profile and override changes, executes discovery/catalog/apply/launch/rollback jobs, and is covered by browser tests.
+
+Start it from the project root:
+
+```bash
+python3 main.py serve-ui --host 127.0.0.1 --port 8000
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000/
+```
+
+The UI covers:
+
+- live library/install inspection
+- validate, explain-policy, prepare, dry-run, apply, launch
+- profile editing with persistence
+- install override editing with persistence
+- DLSS catalog refresh and managed downloads
+- rollback inspection and execution
+- live system capability reporting
+
+## Legacy Mock UI
+
+The old exported mock frontend still exists in `mock_ui/` for comparison and design fallback.
+
+Refresh the legacy export:
 
 ```bash
 python3 main.py export-mock-ui-data
 ```
 
-`export-mock-ui-data` now refreshes the official DLSS catalog automatically on start before writing the GUI payload. If you explicitly want to stay offline and reuse the local cached catalog, use:
-
-```bash
-python3 main.py export-mock-ui-data --skip-catalog-refresh
-```
-
-Serve the frontend locally from the project root:
+Serve it locally:
 
 ```bash
 python3 -m http.server 8080
@@ -180,22 +212,6 @@ Then open:
 ```text
 http://localhost:8080/mock_ui/
 ```
-
-DLSS catalog page:
-
-```text
-http://localhost:8080/mock_ui/catalog.html
-```
-
-Current GUI scope:
-
-- Steam-inspired library/detail layout instead of raw debug JSON
-- per-title DLSS payload picker in the frontend preview, backed by the full official DLSS catalog
-- launch-toggle preview for MangoHud, GameMode, and common Proton compatibility env vars
-- command preview, safety summary, policy reasons, and rollback visibility
-- separate DLSS catalog page with sorted official versions, release links, and managed download commands
-
-The GUI is still frontend-only. The interactive controls currently preview settings on top of the exported planner state; they do not yet persist changes back into the CLI/backend.
 
 ## DLSS Catalog And Downloads
 
@@ -236,6 +252,10 @@ Near-term work:
 - harden DLSS runtime validation with compatibility metadata and payload integrity checks
 - expand real-install validation and edge-case fixtures
 - replace the mock UI with a thin real frontend over the existing backend logic
+
+Detailed implementation plan for replacing the mock UI and introducing full browser automation:
+
+- [REAL_UI_AND_PLAYWRIGHT_PLAN.md](REAL_UI_AND_PLAYWRIGHT_PLAN.md)
 
 ## DLSS Catalog Plan
 

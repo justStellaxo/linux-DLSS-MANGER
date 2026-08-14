@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dlls-manager"
-version = "0.2.0a1"
-description = "CLI-first Linux DLSS manager prototype for discovery, policy-aware launch planning, mutation, and rollback."
+version = "0.3.0a1"
+description = "Standalone Linux DLSS manager for discovery, policy-aware launch planning, mutation, rollback, and DLSS catalog management."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -15,8 +15,8 @@ license = { text = "Proprietary" }
 keywords = ["dlss", "linux", "proton", "steam", "wine"]
 classifiers = [
   "Development Status :: 3 - Alpha",
-  "Environment :: Console",
-  "Intended Audience :: Developers",
+  "Environment :: X11 Applications :: Qt",
+  "Intended Audience :: End Users/Desktop",
   "License :: Other/Proprietary License",
   "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
@@ -24,21 +24,28 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-dependencies = []
+dependencies = [
+  "PySide6>=6.8,<7",
+]
 
 [project.optional-dependencies]
-dev = []
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-qt>=4.4,<5",
+]
 
 [project.scripts]
 dlls-manager = "dlls_manager.cli:main"
+dlls-manager-gui = "dlls_manager.gui.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["dlls_manager*"]
 
+[tool.setuptools.package-data]
+"dlls_manager.gui" = [
+  "assets/*",
+]
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = [
-  "mock_ui/mock-library.js",
-  "mock_ui/mock-library.json",
-]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import zipfile
 from pathlib import Path
@@ -19,6 +20,14 @@ HTTP_HEADERS = {
     "Accept": "application/vnd.github+json",
     "User-Agent": "dlls-manager/0.2.0a1",
 }
+
+
+def _releases_api_url() -> str:
+    return os.environ.get("DLLS_MANAGER_DLSS_RELEASES_API_URL", GITHUB_DLSS_RELEASES_API)
+
+
+def _releases_page_url() -> str:
+    return os.environ.get("DLLS_MANAGER_DLSS_RELEASES_PAGE_URL", OFFICIAL_DLSS_RELEASES_PAGE)
 
 
 def normalize_version_id(value: str) -> str:
@@ -119,7 +128,7 @@ def build_dlss_catalog_from_releases(releases: list[dict[str, Any]]) -> list[Dls
             "selectable": True,
             "source": "built_in",
             "release_name": "Use the game-shipped DLSS runtime",
-            "release_url": OFFICIAL_DLSS_RELEASES_PAGE,
+            "release_url": _releases_page_url(),
         }
     ]
 
@@ -140,7 +149,7 @@ def build_dlss_catalog_from_releases(releases: list[dict[str, Any]]) -> list[Dls
                 "selectable": True,
                 "source": "official_nvidia_github",
                 "release_name": str(release.get("name") or f"DLSS {version} SDK"),
-                "release_url": str(release.get("html_url") or OFFICIAL_DLSS_RELEASES_PAGE),
+                "release_url": str(release.get("html_url") or _releases_page_url()),
                 "published_at": str(release.get("published_at") or ""),
                 "browser_download_url": str(asset.get("browser_download_url") or ""),
                 "asset_name": str(asset.get("name") or ""),
@@ -159,15 +168,24 @@ def _with_local_state(entry: DlssVersionRecord) -> DlssVersionRecord:
         enriched["downloaded"] = False
         enriched["local_asset_exists"] = False
         enriched["download_command"] = "not required"
+        enriched["has_rr_dll"] = False
+        enriched["has_fg_dll"] = False
         return enriched
 
     asset_name = entry.get("asset_name") or f"{entry['id']}.zip"
     asset_path = DLSS_DOWNLOADS_DIR / entry["id"] / asset_name
-    runtime_path = DLSS_RUNTIME_DIR / entry["id"] / "nvngx_dlss.dll"
+    runtime_dir = DLSS_RUNTIME_DIR / entry["id"]
+    sr_path = runtime_dir / "nvngx_dlss.dll"
+    rr_path = runtime_dir / "nvngx_dlssd.dll"
+    fg_path = runtime_dir / "nvngx_dlssg.dll"
     enriched["local_asset_path"] = str(asset_path)
-    enriched["runtime_path"] = str(runtime_path)
+    enriched["runtime_path"] = str(sr_path)
     enriched["local_asset_exists"] = asset_path.exists()
-    enriched["downloaded"] = runtime_path.exists()
+    enriched["downloaded"] = sr_path.exists()
+    enriched["rr_runtime_path"] = str(rr_path)
+    enriched["has_rr_dll"] = rr_path.exists()
+    enriched["fg_runtime_path"] = str(fg_path)
+    enriched["has_fg_dll"] = fg_path.exists()
     enriched["download_command"] = f"python3 main.py download-dlss {entry['id']}"
     return enriched
 
@@ -189,20 +207,29 @@ def get_dlss_version(version_id: str) -> DlssVersionRecord:
 
 
 def refresh_dlss_catalog() -> dict[str, Any]:
-    releases = _request_json(GITHUB_DLSS_RELEASES_API)
+    source_url = _releases_api_url()
+    release_page = _releases_page_url()
+    releases = _request_json(source_url)
     if not isinstance(releases, list):
         raise ValueError("Unexpected GitHub API response while refreshing DLSS catalog.")
     catalog = build_dlss_catalog_from_releases(releases)
     atomic_write_json(DLSS_VERSIONS_FILE, catalog)
     return {
         "updated": True,
-        "source": GITHUB_DLSS_RELEASES_API,
-        "release_page": OFFICIAL_DLSS_RELEASES_PAGE,
+        "source": source_url,
+        "release_page": release_page,
         "entries": len(catalog),
         "downloadable_entries": len([entry for entry in catalog if entry["id"] != "game_default"]),
         "latest_version": next((entry["id"] for entry in catalog if entry["id"] != "game_default"), None),
         "catalog_path": str(DLSS_VERSIONS_FILE),
     }
+
+
+DLSS_DLL_NAMES = {
+    "nvngx_dlss.dll",
+    "nvngx_dlssd.dll",
+    "nvngx_dlssg.dll",
+}
 
 
 def extract_nvngx_dlss_from_zip(zip_path: Path, target_path: Path) -> str:
@@ -217,6 +244,24 @@ def extract_nvngx_dlss_from_zip(zip_path: Path, target_path: Path) -> str:
             tmp_path = Path(tmp.name)
     tmp_path.replace(target_path)
     return member_name
+
+
+def extract_all_dlss_dlls_from_zip(zip_path: Path, target_dir: Path) -> list[str]:
+    """Extract all DLSS DLL variants (SR, RR, FG) from the SDK ZIP."""
+    ensure_directory(target_dir)
+    extracted: list[str] = []
+    with zipfile.ZipFile(zip_path) as archive:
+        for dll_name in DLSS_DLL_NAMES:
+            matching = [n for n in archive.namelist() if n.lower().endswith(f"/{dll_name}")]
+            if not matching:
+                continue
+            target = target_dir / dll_name
+            with archive.open(matching[0]) as source, NamedTemporaryFile(delete=False, dir=target_dir) as tmp:
+                shutil.copyfileobj(source, tmp)
+                tmp_path = Path(tmp.name)
+            tmp_path.replace(target)
+            extracted.append(dll_name)
+    return extracted
 
 
 def download_dlss_version(version_id: str, force: bool = False) -> dict[str, Any]:
@@ -250,7 +295,7 @@ def download_dlss_version(version_id: str, force: bool = False) -> dict[str, Any
             temp_path = Path(tmp.name)
         temp_path.replace(asset_path)
     extracted_member = extract_nvngx_dlss_from_zip(asset_path, runtime_path)
-
+    all_extracted = extract_all_dlss_dlls_from_zip(asset_path, runtime_dir)
     metadata = {
         "version": version_id,
         "label": entry["label"],
@@ -262,6 +307,9 @@ def download_dlss_version(version_id: str, force: bool = False) -> dict[str, Any
         "asset_path": str(asset_path),
         "runtime_path": str(runtime_path),
         "extracted_member": extracted_member,
+        "all_extracted_dlls": all_extracted,
+        "has_rr_dll": "nvngx_dlssd.dll" in all_extracted,
+        "has_fg_dll": "nvngx_dlssg.dll" in all_extracted,
         "downloaded_at": utc_timestamp(),
     }
     atomic_write_json(metadata_path, metadata)

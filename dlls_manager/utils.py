@@ -39,3 +39,22 @@ def atomic_write_json(path: Path, payload: Any) -> None:
 def ensure_directory(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def is_process_running(names: set[str]) -> bool:
+    proc_root = Path("/proc")
+    if not proc_root.exists():
+        return False
+
+    wanted = {name.strip().lower() for name in names if name.strip()}
+    if not wanted:
+        return False
+
+    for comm_path in proc_root.glob("[0-9]*/comm"):
+        try:
+            process_name = comm_path.read_text(encoding="utf-8").strip().lower()
+        except OSError:
+            continue
+        if process_name in wanted:
+            return True
+    return False

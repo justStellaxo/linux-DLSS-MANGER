@@ -62,6 +62,14 @@ class ProfileAndOverrideStoreTests(unittest.TestCase):
         self.assertEqual(loaded["dlss_version"], "2.5.1")
         self.assertFalse(loaded["sync_to_launcher"])
 
+    def test_install_override_defaults_launcher_sync_off(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            overrides_dir = Path(tmp) / "overrides"
+            with patch("dlls_manager.override_db.INSTALL_OVERRIDES_DIR", overrides_dir):
+                loaded = load_install_override("steam:sample-dx11")
+
+        self.assertFalse(loaded["sync_to_launcher"])
+
 
 if __name__ == "__main__":
     unittest.main()

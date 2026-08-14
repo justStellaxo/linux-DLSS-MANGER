@@ -17,10 +17,8 @@ from dlls_manager.launch_plan import (
     list_games_summary,
     list_installs_summary,
 )
-from dlls_manager.mock_data import build_mock_ui_script, export_mock_library
 from dlls_manager.mutations import list_rollbacks, load_rollback_record, rollback_mutation
 from dlls_manager.override_db import load_install_override, update_install_override
-from dlls_manager.paths import MOCK_UI_DATA_FILE, MOCK_UI_SCRIPT_FILE
 from dlls_manager.profile_db import list_profiles, load_profile, update_profile
 from dlls_manager.snapshots import write_snapshot
 from dlls_manager.utils import dump_json
@@ -106,18 +104,6 @@ def cmd_validate_install(args: argparse.Namespace) -> None:
     if args.snapshot:
         report["snapshot_path"] = write_snapshot("validation", report)
     print(dump_json(report))
-
-
-def cmd_export_mock_ui_data(args: argparse.Namespace) -> None:
-    payload = export_mock_library(refresh_catalog=not args.skip_catalog_refresh)
-    MOCK_UI_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-    MOCK_UI_DATA_FILE.write_text(dump_json(payload), encoding="utf-8")
-    MOCK_UI_SCRIPT_FILE.write_text(build_mock_ui_script(payload), encoding="utf-8")
-    if args.snapshot:
-        payload["snapshot_path"] = write_snapshot("mock-ui", payload)
-        MOCK_UI_DATA_FILE.write_text(dump_json(payload), encoding="utf-8")
-        MOCK_UI_SCRIPT_FILE.write_text(build_mock_ui_script(payload), encoding="utf-8")
-    print(f"Wrote mock UI data to {MOCK_UI_DATA_FILE} and {MOCK_UI_SCRIPT_FILE}")
 
 
 def cmd_refresh_dlss_catalog(_: argparse.Namespace) -> None:
@@ -267,15 +253,6 @@ def build_parser() -> argparse.ArgumentParser:
     explain.add_argument("--profile", default="default", help="Profile name from profiles/<name>.json")
     explain.add_argument("--snapshot", action="store_true", help="Persist policy report to snapshots/")
     explain.set_defaults(func=cmd_explain_policy)
-
-    export = sub.add_parser("export-mock-ui-data", help="Export planner data for the static mock UI")
-    export.add_argument(
-        "--skip-catalog-refresh",
-        action="store_true",
-        help="Use the local DLSS catalog as-is without refreshing official NVIDIA releases first",
-    )
-    export.add_argument("--snapshot", action="store_true", help="Persist export metadata to snapshots/")
-    export.set_defaults(func=cmd_export_mock_ui_data)
 
     refresh_dlss = sub.add_parser("refresh-dlss-catalog", help="Refresh dlss_versions.json from official NVIDIA releases")
     refresh_dlss.set_defaults(func=cmd_refresh_dlss_catalog)

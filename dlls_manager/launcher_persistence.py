@@ -242,10 +242,13 @@ def build_launcher_sync_steps(
             )
         return steps, warnings, blocked_reasons
 
-    if install["source"] == "steam":
+    is_steam_backed = install["source"] == "steam" or (
+        install.get("launcher_family") == "steam" and bool(install.get("app_id"))
+    )
+    if is_steam_backed:
         app_id = install.get("app_id")
         if not app_id:
-            blocked_reasons.append(f"Steam install '{install['display_name']}' is missing an app_id for launcher sync.")
+            blocked_reasons.append(f"Steam-backed install '{install['display_name']}' is missing an app_id for launcher sync.")
             return steps, warnings, blocked_reasons
 
         steam_configs = _steam_localconfig_files()
@@ -253,6 +256,9 @@ def build_launcher_sync_steps(
             warnings.append("No Steam userdata localconfig.vdf files were found; Steam launch options were not synced.")
             return steps, warnings, blocked_reasons
 
+        warnings.append(
+            "Steam launcher sync writes localconfig.vdf only. If Steam is already running, restart it before expecting the new launch options to apply."
+        )
         launch_options = build_steam_launch_options(effective_env, effective_wrappers, launch_args)
         for config_path in steam_configs:
             try:

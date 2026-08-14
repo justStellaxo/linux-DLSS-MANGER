@@ -1,10 +1,14 @@
 import shlex
+import shutil
+from pathlib import Path
 
 from dlls_manager.anti_cheat import classify_game, classify_install
 from dlls_manager.execution.base import build_execution_plan
+from dlls_manager.execution.steam import is_steam_backed_install
 from dlls_manager.dlss_policy import evaluate_dlss_policy
 from dlls_manager.game_db import get_game, load_games
 from dlls_manager.install_db import get_install, load_installs
+from dlls_manager.launcher_persistence import build_steam_launch_options
 from dlls_manager.mutations.base import build_mutation_plan
 from dlls_manager.models import (
     AntiCheatAssessment,
@@ -20,6 +24,8 @@ from dlls_manager.models import (
 from dlls_manager.override_db import load_install_override
 from dlls_manager.profile_db import load_profile
 from dlls_manager.release_support import get_release_support
+
+_RUNTIME_WRAPPER_TOOLS = {"mangohud", "gamemoderun", "gamescope"}
 
 
 def requested_features(profile: Profile) -> list[str]:
@@ -104,6 +110,30 @@ def build_profile_env_and_wrappers(profile: Profile, override: InstallOverride |
         env["NVPRESENT_ENABLE_SMOOTH_MOTION"] = "1"
     if profile.get("dlss_version"):
         env["DLLS_MANAGER_DLSS_VERSION"] = str(profile["dlss_version"])
+    if profile.get("enable_ngx_updater"):
+        env["PROTON_ENABLE_NGX_UPDATER"] = "1"
+    if profile.get("enable_hags"):
+        env["WINEHAGS"] = "1"
+    if profile.get("enable_vkreflex"):
+        env["DXVK_NVAPI_VKREFLEX"] = "1"
+    upgrade = profile.get("proton_dlss_upgrade")
+    if upgrade:
+        env["PROTON_DLSS_UPGRADE"] = str(upgrade)
+    # DRS Settings for DLSS preset overrides
+    drs_parts: list[str] = []
+    sr_preset = profile.get("dlss_sr_preset")
+    if sr_preset:
+        drs_parts.append("NGX_DLSS_SR_OVERRIDE=on")
+        drs_parts.append(f"NGX_DLSS_SR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_{sr_preset}")
+    rr_preset = profile.get("dlss_rr_preset")
+    if rr_preset:
+        drs_parts.append("NGX_DLSS_RR_OVERRIDE=on")
+        drs_parts.append(f"NGX_DLSS_RR_OVERRIDE_RENDER_PRESET_SELECTION=render_preset_{rr_preset}")
+    fg_override = profile.get("dlss_fg_override")
+    if fg_override:
+        drs_parts.append(f"NGX_DLSS_FG_OVERRIDE={fg_override}")
+    if drs_parts:
+        env["DXVK_NVAPI_DRS_SETTINGS"] = ",".join(drs_parts)
     env.update(profile.get("custom_env", {}))
 
     wrappers = []
@@ -114,6 +144,53 @@ def build_profile_env_and_wrappers(profile: Profile, override: InstallOverride |
     if override:
         wrappers.extend(override.get("extra_wrappers", []))
     return env, wrappers
+
+
+def _tool_path(command: str) -> str | None:
+    if not command:
+        return None
+    if "/" in command:
+        candidate = Path(command).expanduser()
+        return str(candidate) if candidate.exists() else None
+    return shutil.which(command)
+
+
+def required_runtime_tools(install: LauncherInstallRecord, override: InstallOverride, wrappers: list[str]) -> list[str]:
+    if is_steam_backed_install(install) and not override.get("sync_to_launcher"):
+        return []
+    return [wrapper for wrapper in wrappers if wrapper in _RUNTIME_WRAPPER_TOOLS]
+
+
+def missing_runtime_tools(install: LauncherInstallRecord, override: InstallOverride, wrappers: list[str]) -> list[str]:
+    missing: list[str] = []
+    for wrapper in _unique_list(required_runtime_tools(install, override, wrappers)):
+        if _tool_path(wrapper):
+            continue
+        missing.append(wrapper)
+    return missing
+
+
+def evaluate_runtime_wrapper_support(
+    install: LauncherInstallRecord,
+    override: InstallOverride,
+    wrappers: list[str],
+) -> tuple[list[str], list[str]]:
+    active_wrappers = required_runtime_tools(install, override, wrappers)
+    warnings: list[str] = []
+    blocked_reasons: list[str] = []
+
+    for wrapper in missing_runtime_tools(install, override, active_wrappers):
+        warnings.append(f"Requested launch wrapper '{wrapper}' is not installed or not available in PATH.")
+
+    wrapper_set = set(active_wrappers)
+    if "gamescope" in wrapper_set and "mangohud" in wrapper_set:
+        blocked_reasons.append(
+            "Current implementation does not support MangoHud for gamescope-backed launches. MangoHud upstream requires gamescope --mangoapp, which DLLS Manager does not yet generate."
+        )
+        if not _tool_path("mangoapp"):
+            warnings.append("gamescope MangoHud support also requires 'mangoapp', which is not installed or not available in PATH.")
+
+    return warnings, blocked_reasons
 
 
 def evaluate_plan(game: GameRecord, profile: Profile) -> dict[str, AntiCheatAssessment | DlssPolicyEvaluation | list[str] | str]:
@@ -248,15 +325,41 @@ def build_install_launch_plan(install_id: str, profile_name: str) -> InstallLaun
     execution = build_execution_plan(install)
     effective_args = merge_launch_args(execution.get("args", ""), profile.get("launch_args", ""))
     evaluation = _evaluate_install_plan(install, profile)
-    execution_preview_payload = dict(execution)
-    execution_preview_payload["args"] = effective_args
-    command_preview = build_execution_preview(execution_preview_payload, env, wrappers)
+    effective_env = {**execution["env"], **env}
+    effective_wrappers = [*wrappers, *execution["wrappers"]]
+    runtime_warnings, runtime_blocked = evaluate_runtime_wrapper_support(install, override, effective_wrappers)
+    evaluation["warnings"].extend(runtime_warnings)
+    evaluation["blocked_reasons"].extend(runtime_blocked)
+    plan_notes = [
+        f"Imported from discovery source '{install['source']}'.",
+        f"Release support level: {release_support['level']}. {release_support['note']}",
+        "Prepared plan includes mutation/apply preview and launcher sync steps.",
+    ]
+    if is_steam_backed_install(install):
+        execution_preview_payload = dict(execution)
+        command_preview = build_execution_preview(execution_preview_payload, {}, [])
+        steam_launch_options = build_steam_launch_options(effective_env, effective_wrappers, effective_args)
+        if override.get("sync_to_launcher"):
+            evaluation["warnings"].append(
+                "Steam-backed launcher sync is enabled. DLLS Manager will write launch options into localconfig.vdf, but the command preview only shows the Steam client invocation."
+            )
+            if steam_launch_options:
+                plan_notes.append(f"Planned Steam launch options: {steam_launch_options}")
+        elif steam_launch_options:
+            evaluation["warnings"].append(
+                "Steam-backed installs do not reliably inherit profile env, wrappers, or profile launch args from direct steam -applaunch in this prototype. Enable launcher sync to persist them into Steam's localconfig.vdf."
+            )
+            plan_notes.append(f"Unsynced Steam launch options: {steam_launch_options}")
+    else:
+        execution_preview_payload = dict(execution)
+        execution_preview_payload["args"] = effective_args
+        command_preview = build_execution_preview(execution_preview_payload, env, wrappers)
     mutation_plan = build_mutation_plan(
         install,
         profile_name,
         override,
-        {**execution["env"], **env},
-        [*wrappers, *execution["wrappers"]],
+        effective_env,
+        effective_wrappers,
         effective_args,
         str(evaluation["compatibility_status"]),
         [*install["validation_warnings"], *evaluation["warnings"]],
@@ -291,11 +394,7 @@ def build_install_launch_plan(install_id: str, profile_name: str) -> InstallLaun
         "blocked_reasons": blocked_reasons,
         "mutation_plan": mutation_plan,
         "release_support": release_support,
-        "notes": [
-            f"Imported from discovery source '{install['source']}'.",
-            f"Release support level: {release_support['level']}. {release_support['note']}",
-            "Prepared plan includes mutation/apply preview and launcher sync steps.",
-        ],
+        "notes": plan_notes,
     }
 
 

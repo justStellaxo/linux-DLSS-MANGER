@@ -11,6 +11,10 @@ def detect_capabilities() -> dict:
         "nvidia_smi_path": shutil.which("nvidia-smi"),
         "vulkaninfo_path": shutil.which("vulkaninfo"),
         "steam_path": shutil.which("steam"),
+        "mangohud_path": shutil.which("mangohud"),
+        "gamemoderun_path": shutil.which("gamemoderun"),
+        "gamescope_path": shutil.which("gamescope"),
+        "mangoapp_path": shutil.which("mangoapp"),
     }
 
     if report["nvidia_smi_path"]:
@@ -26,6 +30,10 @@ def detect_capabilities() -> dict:
         report["vulkaninfo_summary"] = "vulkaninfo not found"
 
     report["steam_available"] = bool(report["steam_path"])
+    report["mangohud_available"] = bool(report["mangohud_path"])
+    report["gamemode_available"] = bool(report["gamemoderun_path"])
+    report["gamescope_available"] = bool(report["gamescope_path"])
+    report["mangoapp_available"] = bool(report["mangoapp_path"])
     report["vulkan_available"] = bool(report["vulkaninfo_path"])
     report["nvidia_driver_present"] = bool(report["nvidia_smi_path"])
     report["smooth_motion_supported"] = bool(report["vulkaninfo_path"] and report["nvidia_smi_path"])

@@ -24,7 +24,7 @@ def validate_install_override(install_id: str, payload: dict | None) -> InstallO
     data.setdefault("use_gamemode", None)
     data.setdefault("use_mangohud", None)
     data.setdefault("allow_unsupported_override", None)
-    data.setdefault("sync_to_launcher", True)
+    data.setdefault("sync_to_launcher", False)
     data.setdefault("dlss_target_path", None)
     data.setdefault("notes", [])
 
@@ -111,6 +111,19 @@ def update_install_override(install_id: str, updates: dict[str, str]) -> Install
             current[key] = [item.strip() for item in raw_value.split("|") if item.strip()]
             continue
         current[key] = raw_value
+    return save_install_override(install_id, current)
+
+
+def apply_install_override_updates(install_id: str, updates: dict) -> InstallOverride:
+    current = dict(load_install_override(install_id))
+    for key, value in updates.items():
+        if key in {"extra_env", "extra_wrappers", "notes"}:
+            current[key] = value
+            continue
+        if key in {"dlss_version", "dlss_target_path"}:
+            current[key] = None if value in {"", None, "none", "null"} else value
+            continue
+        current[key] = value
     return save_install_override(install_id, current)
 
 

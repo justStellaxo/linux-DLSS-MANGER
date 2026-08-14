@@ -1,0 +1,19 @@
+{
+  "allow_unsupported_override": false,
+  "custom_env": {},
+  "dlss_fg_override": "on",
+  "dlss_mode": "game_default",
+  "dlss_rr_preset": "latest",
+  "dlss_sr_preset": "j",
+  "dlss_version": null,
+  "enable_hags": true,
+  "enable_ngx_updater": true,
+  "enable_nvapi": false,
+  "enable_smooth_motion": false,
+  "enable_vkreflex": true,
+  "launch_args": "",
+  "proton_dlss_upgrade": "1",
+  "safety_mode": "strict",
+  "use_gamemode": false,
+  "use_mangohud": false
+}

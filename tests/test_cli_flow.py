@@ -27,7 +27,7 @@ class CliFlowTests(unittest.TestCase):
         listed = run_cli("list-installs")
         self.assertEqual(listed.returncode, 0, listed.stderr)
         self.assertIn("steam:sample-dx11", listed.stdout)
-        self.assertIn("support=supported", listed.stdout)
+        self.assertIn("support=advanced", listed.stdout)
 
     def test_show_and_validate_install(self) -> None:
         run_cli("discover-launchers")
@@ -40,7 +40,7 @@ class CliFlowTests(unittest.TestCase):
         self.assertEqual(validated.returncode, 0, validated.stderr)
         report = json.loads(validated.stdout)
         self.assertTrue(report["ok"])
-        self.assertEqual(report["release_support"]["level"], "supported")
+        self.assertEqual(report["release_support"]["level"], "advanced")
         self.assertEqual(report["summary"]["compatibility_status"], "ok")
 
     def test_launch_preview_default_ok(self) -> None:
@@ -49,10 +49,7 @@ class CliFlowTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["compatibility_status"], "ok")
         self.assertEqual(payload["anti_cheat_assessment"]["policy"], "verified_supported")
-        self.assertEqual(
-            payload["command_preview"],
-            "DXVK_ENABLE_NVAPI=1 DXVK_HUD=0 PROTON_ENABLE_NVAPI=1 gamemoderun mangohud steam -applaunch 123456",
-        )
+        self.assertEqual(payload["command_preview"], "steam -applaunch 123456")
 
     def test_launch_preview_install_id(self) -> None:
         run_cli("discover-launchers")
@@ -61,7 +58,8 @@ class CliFlowTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["compatibility_status"], "ok")
         self.assertEqual(payload["install"]["id"], "steam:sample-dx11")
-        self.assertEqual(payload["release_support"]["level"], "supported")
+        self.assertEqual(payload["release_support"]["level"], "advanced")
+        self.assertEqual(payload["command_preview"], "steam -applaunch 123456")
 
     def test_explain_policy_blocks_experimental_eac_title(self) -> None:
         result = run_cli("explain-policy", "sample-dx12", "--profile", "experimental")
@@ -69,20 +67,6 @@ class CliFlowTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["compatibility_status"], "blocked")
         self.assertTrue(payload["blocked_reasons"])
-
-    def test_export_mock_ui_data(self) -> None:
-        result = run_cli("export-mock-ui-data")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        exported = PROJECT_ROOT / "mock_ui" / "mock-library.json"
-        exported_script = PROJECT_ROOT / "mock_ui" / "mock-library.js"
-        self.assertTrue(exported.exists())
-        self.assertTrue(exported_script.exists())
-        payload = json.loads(exported.read_text(encoding="utf-8"))
-        self.assertTrue(payload["games"])
-        self.assertIn("capabilities", payload)
-        self.assertIn("catalog_refresh", payload)
-        self.assertIn("profiles", payload["games"][0])
-
 
 if __name__ == "__main__":
     unittest.main()

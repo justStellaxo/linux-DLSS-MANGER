@@ -33,7 +33,7 @@ class CliPhase3Tests(unittest.TestCase):
         payload = json.loads(prepared.stdout)
         self.assertIn("mutation_plan", payload)
         self.assertEqual(payload["install"]["id"], "steam:sample-dx11")
-        self.assertEqual(payload["release_support"]["level"], "supported")
+        self.assertEqual(payload["release_support"]["level"], "advanced")
         self.assertEqual(payload["summary"]["install_id"], "steam:sample-dx11")
 
     def test_launch_dry_run_and_rollbacks_listing(self) -> None:
@@ -42,7 +42,7 @@ class CliPhase3Tests(unittest.TestCase):
         payload = json.loads(launch.stdout)
         self.assertTrue(payload["ok"])
         self.assertIn("command", payload)
-        self.assertEqual(payload["summary"]["release_support"], "supported")
+        self.assertEqual(payload["summary"]["release_support"], "advanced")
 
         rollbacks = run_cli("list-rollbacks")
         self.assertEqual(rollbacks.returncode, 0, rollbacks.stderr)

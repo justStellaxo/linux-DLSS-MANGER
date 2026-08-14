@@ -137,6 +137,13 @@ class ApplyAndLaunchTests(unittest.TestCase):
                         "safety_mode": "strict",
                     },
                 )
+                save_install_override(
+                    "steam:test-game",
+                    {
+                        **self._empty_override("steam:test-game"),
+                        "sync_to_launcher": True,
+                    },
+                )
 
                 prepared = prepare_launch("steam:test-game", "default")
                 self.assertEqual(prepared["launch_plan"]["args"], "--from-install --from-profile")
@@ -158,6 +165,135 @@ class ApplyAndLaunchTests(unittest.TestCase):
                 rollback = rollback_mutation(str(applied["rollback_id"]))
                 self.assertTrue(rollback["ok"], rollback["errors"])
                 self.assertEqual(localconfig.read_text(encoding="utf-8"), original_localconfig)
+
+    def test_apply_updates_steam_localconfig_for_desktop_steam_shortcut_installs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            installs_file = root / "installs.json"
+            profiles_dir = root / "profiles"
+            overrides_dir = root / "overrides"
+            rollbacks_dir = root / "rollbacks"
+            steam_root = root / "Steam"
+            localconfig = steam_root / "userdata" / "1000" / "config" / "localconfig.vdf"
+            localconfig.parent.mkdir(parents=True)
+            localconfig.write_text(
+                "\n".join(
+                    [
+                        '"UserLocalConfigStore"',
+                        "{",
+                        '\t"Software"',
+                        "\t{",
+                        '\t\t"Valve"',
+                        "\t\t{",
+                        '\t\t\t"Steam"',
+                        "\t\t\t{",
+                        '\t\t\t\t"apps"',
+                        "\t\t\t\t{",
+                        '\t\t\t\t\t"1142710"',
+                        "\t\t\t\t\t{",
+                        '\t\t\t\t\t\t"LastPlayed"\t\t"0"',
+                        "\t\t\t\t\t}",
+                        "\t\t\t\t}",
+                        "\t\t\t}",
+                        "\t\t}",
+                        "\t}",
+                        "}",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            profiles_dir.mkdir()
+
+            installs_file.write_text(
+                json.dumps(
+                    {
+                        "created_at": "2026-04-17T00:00:00Z",
+                        "warnings": [],
+                        "installs": [
+                            {
+                                "id": "desktop_entry:warhammer3",
+                                "display_name": "Total War: WARHAMMER III",
+                                "source": "desktop_entry",
+                                "source_id": "warhammer3",
+                                "launcher_family": "steam",
+                                "store_family": "steam",
+                                "execution_strategy": "steam_shortcut",
+                                "runtime": "steam",
+                                "install_root": None,
+                                "prefix_path": None,
+                                "runner_name": None,
+                                "runner_path": None,
+                                "exe_path": None,
+                                "script_path": None,
+                                "desktop_file": str(root / "warhammer3.desktop"),
+                                "app_id": "1142710",
+                                "launch_command": ["steam", "-applaunch", "1142710"],
+                                "launch_env": {},
+                                "launch_args": "",
+                                "wrapper_chain": ["mullvad-exclude"],
+                                "working_directory": None,
+                                "scan_paths": [],
+                                "notes": ["Imported from desktop entry discovery as a Steam shortcut."],
+                                "validation_errors": [],
+                                "validation_warnings": [],
+                                "discovery_confidence": "medium",
+                                "anti_cheat": "unknown",
+                                "anti_cheat_vendor": None,
+                                "anti_cheat_policy": "warn",
+                                "supports_dlss_override": False,
+                                "supports_dlss_version_selection": False,
+                                "override_mode": "experimental",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("dlls_manager.install_db.INSTALLS_FILE", installs_file), patch(
+                "dlls_manager.profile_db.PROFILES_DIR", profiles_dir
+            ), patch("dlls_manager.override_db.INSTALL_OVERRIDES_DIR", overrides_dir), patch(
+                "dlls_manager.mutations.base.ROLLBACKS_DIR", rollbacks_dir
+            ), patch("dlls_manager.launcher_persistence.STEAM_ROOT_DIRS", (steam_root,)):
+                save_profile(
+                    "default",
+                    {
+                        "enable_nvapi": False,
+                        "enable_smooth_motion": False,
+                        "use_gamemode": True,
+                        "use_mangohud": True,
+                        "launch_args": "",
+                        "custom_env": {"DXVK_HUD": "0"},
+                        "dlss_mode": "game_default",
+                        "dlss_version": None,
+                        "allow_unsupported_override": False,
+                        "safety_mode": "strict",
+                    },
+                )
+                save_install_override(
+                    "desktop_entry:warhammer3",
+                    {
+                        **self._empty_override("desktop_entry:warhammer3"),
+                        "sync_to_launcher": True,
+                    },
+                )
+
+                prepared = prepare_launch("desktop_entry:warhammer3", "default")
+                self.assertEqual(prepared["execution"]["executable"], ["steam", "-applaunch", "1142710"])
+                self.assertTrue(
+                    any(step["target_path"] == str(localconfig) for step in prepared["mutation_plan"]["steps"]),
+                    prepared["mutation_plan"]["steps"],
+                )
+
+                applied = apply_install_plan("desktop_entry:warhammer3", "default")
+                self.assertTrue(applied["ok"], applied["errors"])
+
+                updated = localconfig.read_text(encoding="utf-8")
+                self.assertIn(
+                    '"LaunchOptions"\t\t"DXVK_HUD=0 gamemoderun mangohud mullvad-exclude %command%"',
+                    updated,
+                )
 
     def test_apply_creates_backup_and_rollback_restores_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -647,7 +783,6 @@ class ApplyAndLaunchTests(unittest.TestCase):
                 self.assertFalse((lug_dir / "dlls_manager_overrides" / "test-launch-failure.json").exists())
                 self.assertTrue(any("automatic rollback restored" in warning.lower() for warning in result["warnings"]))
 
-
     def test_launch_wait_nonzero_exit_auto_rolls_back_mutations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -890,6 +1025,127 @@ class ApplyAndLaunchTests(unittest.TestCase):
                         str(lug_dir / "dlls_manager_overrides" / "test-wait-exit-manifest.json"),
                     },
                 )
+
+    def test_launch_skips_automatic_steam_start_when_sync_is_active_and_steam_is_running(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            installs_file = root / "installs.json"
+            profiles_dir = root / "profiles"
+            overrides_dir = root / "overrides"
+            rollbacks_dir = root / "rollbacks"
+            steam_root = root / "Steam"
+            localconfig = steam_root / "userdata" / "1000" / "config" / "localconfig.vdf"
+            localconfig.parent.mkdir(parents=True)
+            localconfig.write_text(
+                "\n".join(
+                    [
+                        '"UserLocalConfigStore"',
+                        "{",
+                        '\t"Software"',
+                        "\t{",
+                        '\t\t"Valve"',
+                        "\t\t{",
+                        '\t\t\t"Steam"',
+                        "\t\t\t{",
+                        '\t\t\t\t"apps"',
+                        "\t\t\t\t{",
+                        '\t\t\t\t\t"123456"',
+                        "\t\t\t\t\t{",
+                        '\t\t\t\t\t\t"LastPlayed"\t\t"0"',
+                        "\t\t\t\t\t}",
+                        "\t\t\t\t}",
+                        "\t\t\t}",
+                        "\t\t}",
+                        "\t}",
+                        "}",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            profiles_dir.mkdir()
+            installs_file.write_text(
+                json.dumps(
+                    {
+                        "created_at": "2026-04-17T00:00:00Z",
+                        "warnings": [],
+                        "installs": [
+                            {
+                                "id": "steam:test-running",
+                                "display_name": "Steam Running Test",
+                                "source": "steam",
+                                "source_id": "test-running",
+                                "launcher_family": "steam",
+                                "store_family": "steam",
+                                "execution_strategy": "steam_app",
+                                "runtime": "proton-dx11",
+                                "install_root": str(root / "game"),
+                                "prefix_path": None,
+                                "runner_name": None,
+                                "runner_path": None,
+                                "exe_path": None,
+                                "script_path": None,
+                                "desktop_file": None,
+                                "app_id": "123456",
+                                "launch_command": ["steam", "-applaunch", "123456"],
+                                "launch_env": {},
+                                "launch_args": "",
+                                "wrapper_chain": [],
+                                "working_directory": None,
+                                "scan_paths": [],
+                                "notes": [],
+                                "validation_errors": [],
+                                "validation_warnings": [],
+                                "discovery_confidence": "high",
+                                "anti_cheat": "none",
+                                "anti_cheat_vendor": None,
+                                "anti_cheat_policy": "verified_supported",
+                                "supports_dlss_override": True,
+                                "supports_dlss_version_selection": True,
+                                "override_mode": "experimental",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("dlls_manager.install_db.INSTALLS_FILE", installs_file), patch(
+                "dlls_manager.profile_db.PROFILES_DIR", profiles_dir
+            ), patch("dlls_manager.override_db.INSTALL_OVERRIDES_DIR", overrides_dir), patch(
+                "dlls_manager.mutations.base.ROLLBACKS_DIR", rollbacks_dir
+            ), patch("dlls_manager.launcher_persistence.STEAM_ROOT_DIRS", (steam_root,)), patch(
+                "dlls_manager.launcher_runtime._steam_is_running", return_value=True
+            ), patch("dlls_manager.launcher_runtime.subprocess.Popen") as popen_mock:
+                save_profile(
+                    "default",
+                    {
+                        "enable_nvapi": True,
+                        "enable_smooth_motion": False,
+                        "use_gamemode": True,
+                        "use_mangohud": False,
+                        "launch_args": "--from-profile",
+                        "custom_env": {"DXVK_HUD": "0"},
+                        "dlss_mode": "game_default",
+                        "dlss_version": None,
+                        "allow_unsupported_override": False,
+                        "safety_mode": "strict",
+                    },
+                )
+                save_install_override(
+                    "steam:test-running",
+                    {
+                        **self._empty_override("steam:test-running"),
+                        "sync_to_launcher": True,
+                    },
+                )
+
+                result = launch_install("steam:test-running", "default")
+
+        self.assertTrue(result["ok"], result["errors"])
+        self.assertIsNone(result["pid"])
+        self.assertTrue(any("automatic launch was skipped" in warning for warning in result["warnings"]))
+        popen_mock.assert_not_called()
 
 
 if __name__ == "__main__":

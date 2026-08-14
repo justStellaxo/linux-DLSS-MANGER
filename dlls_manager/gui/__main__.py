@@ -13,7 +13,9 @@ def main() -> None:
     app.setStyleSheet(DARK_THEME)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    window.cleanup()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

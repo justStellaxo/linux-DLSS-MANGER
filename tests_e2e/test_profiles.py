@@ -50,3 +50,36 @@ class TestProfilesPage:
         assert profile["launch_args"] == "--test-args"
         assert profile["enable_nvapi"] is True
         window.close()
+
+    def test_new_toggles_exist(self, qtbot, gui_with_installs):
+        window = MainWindow()
+        qtbot.addWidget(window)
+        select_sidebar_item(window, 2)
+        window.profiles_page.profile_list.setCurrentRow(0)
+        from PySide6.QtWidgets import QCheckBox
+        for name in ("profile_enable_hags", "profile_enable_vkreflex",
+                     "profile_enable_ngx_updater"):
+            cb = window.profiles_page.findChild(QCheckBox, name)
+            assert cb is not None, f"CheckBox {name} not found"
+        window.close()
+
+    def test_custom_env_editor_exists(self, qtbot, gui_with_installs):
+        window = MainWindow()
+        qtbot.addWidget(window)
+        select_sidebar_item(window, 2)
+        window.profiles_page.profile_list.setCurrentRow(0)
+        from PySide6.QtWidgets import QTextEdit
+        env_edit = window.profiles_page.findChild(QTextEdit, "profile_custom_env")
+        assert env_edit is not None
+        window.close()
+
+    def test_profile_refresh_on_navigation(self, qtbot, gui_with_installs):
+        window = MainWindow()
+        qtbot.addWidget(window)
+        # Navigate to profiles, then away, then back
+        select_sidebar_item(window, 2)
+        assert window.profiles_page.profile_list.count() >= 1
+        select_sidebar_item(window, 0)  # Library
+        select_sidebar_item(window, 2)  # Back to Profiles
+        assert window.profiles_page.profile_list.count() >= 1
+        window.close()

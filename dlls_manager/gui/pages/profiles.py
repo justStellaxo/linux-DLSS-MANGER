@@ -4,11 +4,20 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QPushButton, QTextEdit, QVBoxLayout, QWidget,
+    QListWidgetItem, QMessageBox, QPushButton, QTextEdit, QVBoxLayout, QWidget,
 )
 
 from dlls_manager.profile_db import list_profiles, load_profile, apply_profile_updates
 from dlls_manager.dlss_catalog import load_dlss_versions
+
+
+PRESET_TOOLTIPS = {
+    "latest": "Always use the newest available preset",
+    "j": "DLSS 4 Transformer preset J",
+    "k": "DLSS 4 Transformer preset K (Quality/Balanced)",
+    "l": "DLSS 4.5 Transformer preset L",
+    "m": "DLSS 4.5 Transformer preset M (Performance)",
+}
 
 
 class ProfilesPage(QWidget):
@@ -17,14 +26,26 @@ class ProfilesPage(QWidget):
         self._build_ui()
         self._load_profiles()
 
+    def refresh(self) -> None:
+        self._load_profiles()
+
     def _build_ui(self) -> None:
         layout = QHBoxLayout(self)
 
         # Left: profile list
+        left = QVBoxLayout()
+        title = QLabel("Profiles")
+        title.setObjectName("page_title")
+        left.addWidget(title)
+
         self.profile_list = QListWidget()
         self.profile_list.setObjectName("profile_list")
         self.profile_list.currentRowChanged.connect(self._on_select_profile)
-        layout.addWidget(self.profile_list, stretch=1)
+        left.addWidget(self.profile_list)
+        left_widget = QWidget()
+        left_widget.setLayout(left)
+        left_widget.setMaximumWidth(250)
+        layout.addWidget(left_widget)
 
         # Right: editor form
         form = QVBoxLayout()
@@ -37,63 +58,98 @@ class ProfilesPage(QWidget):
         form.addWidget(QLabel("DLSS Version"))
         self.dlss_version = QComboBox()
         self.dlss_version.setObjectName("profile_dlss_version")
+        self.dlss_version.setToolTip("Select a downloaded DLSS version, or (none) to use game default")
         form.addWidget(self.dlss_version)
 
         # SR preset
-        form.addWidget(QLabel("DLSS SR Preset"))
+        form.addWidget(QLabel("DLSS SR Preset (Super Resolution)"))
         self.sr_preset = QComboBox()
         self.sr_preset.setObjectName("profile_dlss_sr_preset")
         self.sr_preset.addItems(["(none)", "latest", "j", "k", "l", "m"])
+        for i, label in enumerate(["(none)", "latest", "j", "k", "l", "m"]):
+            if label in PRESET_TOOLTIPS:
+                self.sr_preset.setItemData(i, PRESET_TOOLTIPS[label], Qt.ItemDataRole.ToolTipRole)
+        self.sr_preset.setToolTip("Override the Super Resolution render preset")
         form.addWidget(self.sr_preset)
 
         # RR preset
-        form.addWidget(QLabel("DLSS RR Preset"))
+        form.addWidget(QLabel("DLSS RR Preset (Ray Reconstruction)"))
         self.rr_preset = QComboBox()
         self.rr_preset.setObjectName("profile_dlss_rr_preset")
         self.rr_preset.addItems(["(none)", "latest", "j", "k", "l", "m"])
+        for i, label in enumerate(["(none)", "latest", "j", "k", "l", "m"]):
+            if label in PRESET_TOOLTIPS:
+                self.rr_preset.setItemData(i, PRESET_TOOLTIPS[label], Qt.ItemDataRole.ToolTipRole)
+        self.rr_preset.setToolTip("Override the Ray Reconstruction render preset")
         form.addWidget(self.rr_preset)
 
         # FG override
-        form.addWidget(QLabel("DLSS FG Override"))
+        form.addWidget(QLabel("DLSS FG Override (Frame Generation)"))
         self.fg_override = QComboBox()
         self.fg_override.setObjectName("profile_dlss_fg_override")
         self.fg_override.addItems(["(none)", "on", "off"])
+        self.fg_override.setToolTip("Force Frame Generation on or off")
         form.addWidget(self.fg_override)
 
         # PROTON_DLSS_UPGRADE
         form.addWidget(QLabel("PROTON_DLSS_UPGRADE"))
         self.proton_dlss_upgrade = QLineEdit()
         self.proton_dlss_upgrade.setObjectName("profile_proton_dlss_upgrade")
-        self.proton_dlss_upgrade.setPlaceholderText("e.g. 1 or 310.7")
+        self.proton_dlss_upgrade.setPlaceholderText("e.g. 1 or 310.7 (leave empty for off)")
+        self.proton_dlss_upgrade.setToolTip("Set to '1' for auto-upgrade, or a specific version like '310.7'")
         form.addWidget(self.proton_dlss_upgrade)
 
         # Launch args
         form.addWidget(QLabel("Launch Args"))
         self.launch_args = QLineEdit()
         self.launch_args.setObjectName("profile_launch_args")
+        self.launch_args.setToolTip("Extra arguments appended to the launch command")
         form.addWidget(self.launch_args)
 
-        # Toggles
-        toggle_row = QHBoxLayout()
+        # Custom env
+        form.addWidget(QLabel("Custom Env Vars"))
+        self.custom_env = QTextEdit()
+        self.custom_env.setObjectName("profile_custom_env")
+        self.custom_env.setPlaceholderText("KEY=value (one per line)")
+        self.custom_env.setMaximumHeight(80)
+        self.custom_env.setToolTip("Custom environment variables, one KEY=value per line")
+        form.addWidget(self.custom_env)
+
+        # Toggles — two rows for better layout
+        toggle_row1 = QHBoxLayout()
         self.enable_nvapi = QCheckBox("NVAPI")
         self.enable_nvapi.setObjectName("profile_enable_nvapi")
+        self.enable_nvapi.setToolTip("PROTON_ENABLE_NVAPI + DXVK_ENABLE_NVAPI")
         self.enable_smooth_motion = QCheckBox("Smooth Motion")
         self.enable_smooth_motion.setObjectName("profile_enable_smooth_motion")
+        self.enable_smooth_motion.setToolTip("NVPRESENT_ENABLE_SMOOTH_MOTION")
         self.use_gamemode = QCheckBox("GameMode")
         self.use_gamemode.setObjectName("profile_use_gamemode")
+        self.use_gamemode.setToolTip("gamemoderun wrapper")
         self.use_mangohud = QCheckBox("MangoHud")
         self.use_mangohud.setObjectName("profile_use_mangohud")
+        self.use_mangohud.setToolTip("mangohud overlay wrapper")
+        for cb in (self.enable_nvapi, self.enable_smooth_motion, self.use_gamemode, self.use_mangohud):
+            toggle_row1.addWidget(cb)
+
+        toggle_row2 = QHBoxLayout()
         self.enable_ngx_updater = QCheckBox("NGX Updater")
         self.enable_ngx_updater.setObjectName("profile_enable_ngx_updater")
+        self.enable_ngx_updater.setToolTip("PROTON_ENABLE_NGX_UPDATER=1 — auto-update NGX DLLs")
         self.enable_hags = QCheckBox("HAGS")
         self.enable_hags.setObjectName("profile_enable_hags")
+        self.enable_hags.setToolTip("WINEHAGS=1 — needed for Frame Generation")
         self.enable_vkreflex = QCheckBox("VKReflex")
         self.enable_vkreflex.setObjectName("profile_enable_vkreflex")
-        for cb in (self.enable_nvapi, self.enable_smooth_motion, self.use_gamemode,
-                   self.use_mangohud, self.enable_ngx_updater, self.enable_hags, self.enable_vkreflex):
-            toggle_row.addWidget(cb)
+        self.enable_vkreflex.setToolTip("DXVK_NVAPI_VKREFLEX=1 — lower input latency")
+        for cb in (self.enable_ngx_updater, self.enable_hags, self.enable_vkreflex):
+            toggle_row2.addWidget(cb)
+
         toggle_widget = QWidget()
-        toggle_widget.setLayout(toggle_row)
+        toggle_layout = QVBoxLayout()
+        toggle_layout.addLayout(toggle_row1)
+        toggle_layout.addLayout(toggle_row2)
+        toggle_widget.setLayout(toggle_layout)
         form.addWidget(toggle_widget)
 
         # Safety mode
@@ -101,11 +157,13 @@ class ProfilesPage(QWidget):
         self.safety_mode = QComboBox()
         self.safety_mode.setObjectName("profile_safety_mode")
         self.safety_mode.addItems(["strict", "balanced", "unsafe"])
+        self.safety_mode.setToolTip("strict: block risky overrides, balanced: warn, unsafe: allow all")
         form.addWidget(self.safety_mode)
 
         # Save button
-        self.save_btn = QPushButton("Save Profile")
+        self.save_btn = QPushButton("  💾  Save Profile")
         self.save_btn.setObjectName("save_profile_button")
+        self.save_btn.setToolTip("Save profile changes")
         self.save_btn.clicked.connect(self._on_save)
         form.addWidget(self.save_btn)
 
@@ -146,6 +204,15 @@ class ProfilesPage(QWidget):
         self.enable_ngx_updater.setChecked(profile.get("enable_ngx_updater", False))
         self.enable_hags.setChecked(profile.get("enable_hags", False))
         self.enable_vkreflex.setChecked(profile.get("enable_vkreflex", False))
+
+        # Custom env
+        custom_env = profile.get("custom_env", {})
+        if isinstance(custom_env, dict):
+            self.custom_env.setPlainText(
+                "\n".join(f"{k}={v}" for k, v in sorted(custom_env.items()))
+            )
+        else:
+            self.custom_env.setPlainText("")
 
         # DLSS version combo
         self.dlss_version.clear()
@@ -208,6 +275,13 @@ class ProfilesPage(QWidget):
         upgrade = self.proton_dlss_upgrade.text().strip()
         upgrade = None if not upgrade else upgrade
 
+        # Parse custom env
+        custom_env: dict[str, str] = {}
+        for line in self.custom_env.toPlainText().strip().splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                custom_env[k.strip()] = v.strip()
+
         updates = {
             "launch_args": self.launch_args.text(),
             "enable_nvapi": self.enable_nvapi.isChecked(),
@@ -223,9 +297,10 @@ class ProfilesPage(QWidget):
             "proton_dlss_upgrade": upgrade,
             "safety_mode": self.safety_mode.currentText(),
             "dlss_version": self.dlss_version.currentData(),
+            "custom_env": custom_env,
         }
         try:
             apply_profile_updates(name, updates)
             self.result_label.setText("Profile saved successfully.")
         except Exception as e:
-            self.result_label.setText(f"Save error: {e}")
+            QMessageBox.critical(self, "Save Error", f"Failed to save profile:\n{e}")

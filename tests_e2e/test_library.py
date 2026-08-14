@@ -49,3 +49,42 @@ class TestLibraryPage:
         detail = window.library_page.detail_panel
         assert detail.command_preview.toPlainText()
         window.close()
+
+    def test_profile_selector_has_options(self, qtbot, gui_with_installs):
+        window = MainWindow()
+        qtbot.addWidget(window)
+        window.library_page.install_list.setCurrentRow(0)
+        detail = window.library_page.detail_panel
+        assert detail.profile_select.count() >= 1
+        assert detail.profile_select.findText("default") >= 0
+        window.close()
+
+    def test_override_toggles_exist(self, qtbot, gui_with_installs):
+        window = MainWindow()
+        qtbot.addWidget(window)
+        window.library_page.install_list.setCurrentRow(0)
+        detail = window.library_page.detail_panel
+        # Check new toggles exist
+        assert detail.override_smooth_motion is not None
+        assert detail.override_hags is not None
+        assert detail.override_vkreflex is not None
+        assert detail.override_ngx_updater is not None
+        window.close()
+
+    def test_extra_env_editor_exists(self, qtbot, gui_with_installs):
+        window = MainWindow()
+        qtbot.addWidget(window)
+        window.library_page.install_list.setCurrentRow(0)
+        detail = window.library_page.detail_panel
+        assert detail.extra_env is not None
+        window.close()
+
+    def test_empty_state_shows_when_no_installs(self, qtbot, gui_env):
+        from unittest.mock import patch
+        with patch("dlls_manager.gui.pages.library.list_installs_summary", return_value=[]):
+            window = MainWindow()
+            qtbot.addWidget(window)
+            qtbot.wait(500)
+            assert window.library_page.install_list.count() == 0
+            assert not window.library_page.empty_label.isHidden()
+            window.close()

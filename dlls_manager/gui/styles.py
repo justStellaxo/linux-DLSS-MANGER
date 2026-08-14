@@ -230,4 +230,81 @@ QListWidget#install_list::item:selected {
 QListWidget#install_list::item:hover {
     background-color: #243648;
 }
+
+/* Progress Bar */
+QProgressBar {
+    background-color: #0e1a26;
+    border: 1px solid #2a475e;
+    border-radius: 4px;
+    text-align: center;
+    color: #c7d5e0;
+    height: 20px;
+}
+QProgressBar::chunk {
+    background-color: #66c0f4;
+    border-radius: 3px;
+}
+
+/* Message Box */
+QMessageBox {
+    background-color: #1b2838;
+}
+QMessageBox QLabel {
+    color: #c7d5e0;
+}
+
+/* Tooltip */
+QToolTip {
+    background-color: #0e1a26;
+    color: #c7d5e0;
+    border: 1px solid #2a475e;
+    border-radius: 3px;
+    padding: 4px 8px;
+}
+
+/* Menu Bar */
+QMenuBar {
+    background-color: #171a21;
+    color: #c7d5e0;
+    border-bottom: 1px solid #2a475e;
+}
+QMenuBar::item:selected {
+    background-color: #2a475e;
+}
+QMenu {
+    background-color: #1b2838;
+    border: 1px solid #2a475e;
+    color: #c7d5e0;
+}
+QMenu::item:selected {
+    background-color: #2a475e;
+}
+
+/* Status Bar */
+QStatusBar {
+    background-color: #171a21;
+    color: #8f98a0;
+    border-top: 1px solid #2a475e;
+}
+
+/* Group Box */
+QGroupBox {
+    border: 1px solid #2a475e;
+    border-radius: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    color: #66c0f4;
+    font-weight: bold;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+}
+
+/* Disabled checkboxes */
+QCheckBox::indicator:disabled {
+    background-color: #2a2a2a;
+    border: 1px solid #333;
+}
 """
